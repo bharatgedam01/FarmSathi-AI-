@@ -1,0 +1,21 @@
+{
+  "name": "farmsaathi-ai",
+  "version": "2.0.0",
+  "description": "FarmSaathi AI — Smart Farmer Assistance Platform for Indian Farmers",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "agriculture",
+    "farmer-assistance",
+    "crop-disease-detection",
+    "ai",
+    "weather",
+    "mandi-prices",
+    "indian-farmers"
+  ],
+  "author": "FarmSaathi AI Team",
+  "license": "MIT"
+}
