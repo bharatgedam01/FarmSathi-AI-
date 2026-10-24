@@ -1700,7 +1700,24 @@ var CONFIG = {
   supabaseAnonKey: ''
 };
 
-var supabase = null;
+var supabaseClient = null;
+
+function getSupabase() {
+  if (supabaseClient) return supabaseClient;
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) return null;
+
+  try {
+    var lib = window.supabase;
+    if (lib && typeof lib.createClient === 'function') {
+      supabaseClient = lib.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+      console.log('🌱 Connected to Supabase Cloud Project');
+      return supabaseClient;
+    }
+  } catch (err) {
+    console.warn('Supabase initialization notice:', err.message);
+  }
+  return null;
+}
 var currentSession = null;
 var currentUser = null;
 var authTab = 'login';
@@ -2248,13 +2265,6 @@ window.handleAddActivitySubmit = async function(e) {
       }
     } catch (err) {}
   }
-};
-  acts.unshift(newAct);
-  setSavedActivities(acts);
-
-  $('formAddActivity').reset();
-  if (statusEl) statusEl.textContent = 'Activity reminder added!';
-  renderActivitiesList();
 };
 
 // ==============================================================================
