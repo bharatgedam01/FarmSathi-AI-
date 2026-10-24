@@ -1,0 +1,112 @@
+{
+  "users": [
+    {
+      "id": "user_demo",
+      "fullName": "Rahul Patil",
+      "email": "farmer@farmsaathi.in",
+      "phone": "+91 9876543210",
+      "passwordHash": "aec04f4b91c690e67daf47ee70cff6c728e16c805839fd6601fe24d901028b2b9ce9893f0b26981e7746b73eeb51ff7672de4f1287ed46ecdcd89014421f2da9",
+      "salt": "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c",
+      "createdAt": "2026-10-24T09:53:08.217Z"
+    }
+  ],
+  "sessions": [
+    {
+      "token": "demo-session-token-farmsaathi-2026",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-23T09:53:08.218Z"
+    },
+    {
+      "token": "fs_sess_f1cf3b19035d9d47fde0caf51f3991ed9edac6c248d96a9d",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-23T09:57:55.838Z"
+    }
+  ],
+  "profiles": {
+    "user_demo": {
+      "userId": "user_demo",
+      "fullName": "Rahul Patil",
+      "phone": "+91 9876543210",
+      "village": "Chamorshi",
+      "district": "Gadchiroli",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "3.5",
+      "areaUnit": "acres",
+      "soilType": "Black Cotton Soil",
+      "irrigationMethod": "Drip Irrigation",
+      "mainCrop": "Soybean & Cotton",
+      "season": "Kharif",
+      "latitude": 20.18,
+      "longitude": 80,
+      "updatedAt": "2026-10-24T09:53:08.218Z"
+    }
+  },
+  "crops": [
+    {
+      "id": "crop_1",
+      "userId": "user_demo",
+      "cropName": "Soybean (JS-335)",
+      "fieldName": "North Field - Plot A",
+      "sowingDate": "2026-06-25",
+      "growthStage": "Pod Filling (शेंगा भरणे)",
+      "area": "2.0 Acres",
+      "notes": "Applied 0:52:34 foliar spray. Moisture level good.",
+      "createdAt": "2026-10-24T09:53:08.218Z"
+    },
+    {
+      "id": "crop_2",
+      "userId": "user_demo",
+      "cropName": "BT Cotton",
+      "fieldName": "South Field - Plot B",
+      "sowingDate": "2026-06-20",
+      "growthStage": "Boll Development (बोंड विकास)",
+      "area": "1.5 Acres",
+      "notes": "Installed 5 pheromone traps for pink bollworm monitoring.",
+      "createdAt": "2026-10-24T09:53:08.218Z"
+    }
+  ],
+  "activities": [
+    {
+      "id": "act_1",
+      "userId": "user_demo",
+      "name": "Irrigate Soybean Field",
+      "category": "Irrigation",
+      "date": "2026-10-25",
+      "notes": "Check moisture in root zone; run drip irrigation for 2 hours.",
+      "completed": false,
+      "createdAt": "2026-10-24T09:53:08.218Z"
+    },
+    {
+      "id": "act_2",
+      "userId": "user_demo",
+      "name": "Inspect Cotton for Pink Bollworm",
+      "category": "Spraying",
+      "date": "2026-10-27",
+      "notes": "Inspect 20 bolls across field for early moth entry holes.",
+      "completed": false,
+      "createdAt": "2026-10-24T09:53:08.218Z"
+    },
+    {
+      "id": "act_3",
+      "userId": "user_demo",
+      "name": "Soil Nutrient Testing Preparation",
+      "category": "Fertilizer",
+      "date": "2026-10-31",
+      "notes": "Collect V-shaped soil samples from 8 spots for KVK testing.",
+      "completed": false,
+      "createdAt": "2026-10-24T09:53:08.218Z"
+    }
+  ],
+  "analyses": [
+    {
+      "id": "scan_1",
+      "userId": "user_demo",
+      "crop": "Soybean Leaf Specimen",
+      "fileName": "soybean_leaf_sample.jpg",
+      "report": "🌾 Farm Intelligence — Crop Leaf Health Triage Report (Soybean)\n======================================================\n1. Visible Plant Observations:\n   - Foliage displays localized chlorotic yellowing on lower leaves with healthy veins.\n2. Differential Diagnosis:\n   - Primary: Early cercospora leaf spot combined with mild nitrogen deficiency.\n3. Immediate Actions:\n   - Rogue out heavily spotted senescent leaves; avoid overhead watering.\n4. Safe IPM Remedies:\n   - Apply bio-fungicide Trichoderma viride @ 5g/L during cool evening hours.\n5. Official Referral:\n   - Consult your local Krishi Vigyan Kendra (KVK) or Kisan Call Centre (1800-180-1551).",
+      "isDemo": true,
+      "createdAt": "2026-10-22T09:53:08.218Z"
+    }
+  ]
+}

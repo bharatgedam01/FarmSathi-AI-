@@ -1661,7 +1661,7 @@
     <div id="authStatusMsg" class="status-msg"></div>
 
     <div class="notice-box" id="authSupabaseNotice" style="margin-top: 14px; font-size: 11.5px;">
-      💡 <b>Cloud Auth:</b> Connect your Supabase project in <code>index.html</code> (or use instant <b>Demo Mode</b> for immediate testing without credentials).
+      💡 <b>Node.js Backend & Local Auth:</b> Connected to persistent database (Default Demo Login: <code>farmer@farmsaathi.in</code> / <code>farmer123</code>).
     </div>
   </div>
 </div>
@@ -1966,29 +1966,46 @@ window.detectFarmGps = function() {
   );
 };
 
-window.handleProfileSubmit = function(e) {
+window.handleProfileSubmit = async function(e) {
   e.preventDefault();
   var statusEl = $('profileStatusMsg');
   if (statusEl) statusEl.className = 'status-msg show ok';
 
   var p = {
     full_name: $('profFullName').value.trim(),
+    fullName: $('profFullName').value.trim(),
     phone: $('profPhone').value.trim(),
     village: $('profVillage').value.trim(),
     district: $('profDistrict').value.trim(),
     state: $('profState').value,
     preferred_language: $('profLanguage').value,
+    preferredLanguage: $('profLanguage').value,
     farm_area: $('profFarmArea').value ? parseFloat($('profFarmArea').value) : null,
+    farmArea: $('profFarmArea').value ? $('profFarmArea').value : '',
     area_unit: $('profAreaUnit').value,
+    areaUnit: $('profAreaUnit').value,
     soil_type: $('profSoilType').value,
+    soilType: $('profSoilType').value,
     irrigation_method: $('profIrrigation').value,
+    irrigationMethod: $('profIrrigation').value,
     main_crop: $('profMainCrop').value.trim(),
+    mainCrop: $('profMainCrop').value.trim(),
     season: $('profSeason').value
   };
 
   saveFarmerProfileLocal(p);
   applyLanguage(p.preferred_language);
   updateAuthUI();
+
+  if (isBackendConnected) {
+    try {
+      var res = await apiRequest('/api/profile', 'POST', p);
+      if (res.ok) {
+        if (statusEl) statusEl.textContent = 'Profile saved to Backend Database (data/database.json) ✓';
+        return;
+      }
+    } catch (err) {}
+  }
 
   if (statusEl) {
     statusEl.textContent = t('saved_on_device');
@@ -2070,16 +2087,23 @@ function renderCropsList() {
   });
 }
 
-window.deleteCrop = function(idx) {
+window.deleteCrop = async function(idx) {
   if (confirm(t('delete_confirm'))) {
     var crops = getSavedCrops();
+    var toDelete = crops[idx];
     crops.splice(idx, 1);
     setSavedCrops(crops);
     renderCropsList();
+
+    if (isBackendConnected && toDelete && toDelete.id) {
+      try {
+        await apiRequest('/api/crops/' + encodeURIComponent(toDelete.id), 'DELETE');
+      } catch (err) {}
+    }
   }
 };
 
-window.handleAddCropSubmit = function(e) {
+window.handleAddCropSubmit = async function(e) {
   e.preventDefault();
   var statusEl = $('cropStatusMsg');
   if (statusEl) statusEl.className = 'status-msg show ok';
@@ -2087,10 +2111,14 @@ window.handleAddCropSubmit = function(e) {
   var newCrop = {
     id: 'crop_' + Date.now(),
     name: $('cropName').value.trim(),
+    cropName: $('cropName').value.trim(),
     variety: $('cropVariety').value.trim(),
     plot: $('cropPlot').value.trim(),
+    fieldName: $('cropPlot').value.trim(),
     sowing_date: $('cropSowingDate').value,
+    sowingDate: $('cropSowingDate').value,
     stage: $('cropStage').value,
+    growthStage: $('cropStage').value,
     area: $('cropArea').value ? parseFloat($('cropArea').value) : null,
     notes: $('cropNotes').value.trim()
   };
@@ -2102,6 +2130,17 @@ window.handleAddCropSubmit = function(e) {
   $('formAddCrop').reset();
   if (statusEl) statusEl.textContent = 'Crop record added successfully!';
   renderCropsList();
+
+  if (isBackendConnected) {
+    try {
+      var res = await apiRequest('/api/crops', 'POST', newCrop);
+      if (res.ok && res.data && res.data.crop) {
+        newCrop.id = res.data.crop.id;
+        setSavedCrops(crops);
+        if (statusEl) statusEl.textContent = 'Crop saved to Backend Database (data/database.json) ✓';
+      }
+    } catch (err) {}
+  }
 };
 
 // ==============================================================================
@@ -2163,14 +2202,21 @@ function renderActivitiesList() {
   });
 }
 
-window.deleteActivity = function(idx) {
+window.deleteActivity = async function(idx) {
   var acts = getSavedActivities();
+  var toDelete = acts[idx];
   acts.splice(idx, 1);
   setSavedActivities(acts);
   renderActivitiesList();
+
+  if (isBackendConnected && toDelete && toDelete.id) {
+    try {
+      await apiRequest('/api/activities/' + encodeURIComponent(toDelete.id), 'DELETE');
+    } catch (err) {}
+  }
 };
 
-window.handleAddActivitySubmit = function(e) {
+window.handleAddActivitySubmit = async function(e) {
   e.preventDefault();
   var statusEl = $('actStatusMsg');
   if (statusEl) statusEl.className = 'status-msg show ok';
@@ -2180,10 +2226,29 @@ window.handleAddActivitySubmit = function(e) {
     name: $('actName').value.trim(),
     category: $('actCategory').value,
     date: $('actDate').value,
-    notes: $('actNotes').value.trim()
+    notes: $('actNotes').value.trim(),
+    completed: false
   };
 
   var acts = getSavedActivities();
+  acts.unshift(newAct);
+  setSavedActivities(acts);
+
+  $('formAddActivity').reset();
+  if (statusEl) statusEl.textContent = 'Activity reminder added!';
+  renderActivitiesList();
+
+  if (isBackendConnected) {
+    try {
+      var res = await apiRequest('/api/activities', 'POST', newAct);
+      if (res.ok && res.data && res.data.activity) {
+        newAct.id = res.data.activity.id;
+        setSavedActivities(acts);
+        if (statusEl) statusEl.textContent = 'Activity saved to Backend Database (data/database.json) ✓';
+      }
+    } catch (err) {}
+  }
+};
   acts.unshift(newAct);
   setSavedActivities(acts);
 
@@ -2377,24 +2442,36 @@ function getAutonomousCropTriage(cropName, language, fileName) {
 }
 
 async function callApi(endpoint, body) {
+  var base = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
+
+  // 1. Try unified Backend REST API (/api/)
   try {
-    var base = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
-    var url = base + '/.netlify/functions/' + endpoint;
     var controller = new AbortController();
-    var timer = setTimeout(function() { controller.abort(); }, 3500);
-    var res = await fetch(url, {
+    var timer = setTimeout(function() { controller.abort(); }, 4000);
+    var res = await fetch(base + '/api/' + endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: controller.signal
     });
     clearTimeout(timer);
-    var data = await res.json();
-    if (res.ok && data && (data.answer || data.report)) {
-      return data;
+    if (res.ok) {
+      var data = await res.json();
+      if (data && (data.answer || data.report)) return data;
     }
   } catch (e) {
-    console.info('Running autonomous agronomic engine for ' + endpoint);
+    // 2. Try Netlify Functions endpoint (/.netlify/functions/)
+    try {
+      var res2 = await fetch(base + '/.netlify/functions/' + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (res2.ok) {
+        var data2 = await res2.json();
+        if (data2 && (data2.answer || data2.report)) return data2;
+      }
+    } catch (e2) {}
   }
 
   // Autonomous fallback without ANY fetch failure
@@ -2613,7 +2690,7 @@ window.runDemoAnalysis = function() {
   $('visionStatusMsg').textContent = 'Generated illustrative demo triage report.';
 };
 
-window.saveCurrentAnalysis = function() {
+window.saveCurrentAnalysis = async function() {
   if (!latestAnalysisReport) return;
   var history = getSavedHistory();
   history.unshift(latestAnalysisReport);
@@ -2622,6 +2699,22 @@ window.saveCurrentAnalysis = function() {
   $('visionStatusMsg').className = 'status-msg show ok';
   $('visionStatusMsg').textContent = 'Report saved to your Scan History!';
   $('btnSaveAnalysisReport').disabled = true;
+
+  if (isBackendConnected) {
+    try {
+      var res = await apiRequest('/api/history', 'POST', {
+        crop: latestAnalysisReport.crop,
+        fileName: latestAnalysisReport.file_name,
+        report: latestAnalysisReport.report,
+        isDemo: latestAnalysisReport.isDemo
+      });
+      if (res.ok && res.data && res.data.record) {
+        latestAnalysisReport.id = res.data.record.id;
+        setSavedHistory(history);
+        $('visionStatusMsg').textContent = 'Report saved to Backend Database (data/database.json) ✓';
+      }
+    } catch (err) {}
+  }
 };
 
 // ==============================================================================
@@ -2671,19 +2764,32 @@ function renderHistoryList() {
   });
 }
 
-window.deleteHistoryItem = function(idx) {
+window.deleteHistoryItem = async function(idx) {
   if (confirm(t('delete_confirm'))) {
     var history = getSavedHistory();
+    var toDelete = history[idx];
     history.splice(idx, 1);
     setSavedHistory(history);
     renderHistoryList();
+
+    if (isBackendConnected && toDelete && toDelete.id) {
+      try {
+        await apiRequest('/api/history/' + encodeURIComponent(toDelete.id), 'DELETE');
+      } catch (err) {}
+    }
   }
 };
 
-window.clearAllHistory = function() {
+window.clearAllHistory = async function() {
   if (confirm('Clear all saved crop scan history records?')) {
     setSavedHistory([]);
     renderHistoryList();
+
+    if (isBackendConnected) {
+      try {
+        await apiRequest('/api/history', 'DELETE');
+      } catch (err) {}
+    }
   }
 };
 
@@ -3091,15 +3197,22 @@ window.fetchMandiPrices = async function() {
   var state = $('mandiStateFilter') ? $('mandiStateFilter').value : '';
 
   var records = [];
+  var base = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
+
   try {
-    var base = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
-    var res = await fetch(base + '/.netlify/functions/mandi?q=' + encodeURIComponent(query) + '&state=' + encodeURIComponent(state));
+    var res = await fetch(base + '/api/mandi?q=' + encodeURIComponent(query) + '&state=' + encodeURIComponent(state));
     var data = await res.json();
     if (data && data.success && Array.isArray(data.records)) {
       records = data.records;
     }
   } catch (err) {
-    console.info('Mandi endpoint notice: using verified All-India agricultural database');
+    try {
+      var res2 = await fetch(base + '/.netlify/functions/mandi?q=' + encodeURIComponent(query) + '&state=' + encodeURIComponent(state));
+      var data2 = await res2.json();
+      if (data2 && data2.success && Array.isArray(data2.records)) {
+        records = data2.records;
+      }
+    } catch (err2) {}
   }
 
   // Fallback to local verified records with zero network dependency
@@ -3123,8 +3236,123 @@ window.fetchMandiPrices = async function() {
 };
 
 // ==============================================================================
-// AUTHENTICATION & SETTINGS
+// BACKEND REST API CLIENT & AUTHENTICATION
 // ==============================================================================
+var API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
+var isBackendConnected = false;
+
+async function apiRequest(endpoint, method, data) {
+  var headers = { 'Content-Type': 'application/json' };
+  var token = Storage.get('auth_token', null);
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  var cleanPath = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+  var url = API_BASE + cleanPath;
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 4000);
+
+  try {
+    var opts = {
+      method: method || 'GET',
+      headers: headers,
+      signal: controller.signal
+    };
+    if (data && ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || '').toUpperCase())) {
+      opts.body = JSON.stringify(data);
+    }
+    var res = await fetch(url, opts);
+    clearTimeout(timer);
+    var json = await res.json();
+    return { ok: res.ok, status: res.status, data: json };
+  } catch (err) {
+    clearTimeout(timer);
+    return { ok: false, error: err.message };
+  }
+}
+
+async function syncWithBackend() {
+  try {
+    var probe = await apiRequest('/api/status', 'GET');
+    if (probe.ok && probe.data && probe.data.status === 'online') {
+      isBackendConnected = true;
+      console.log('🌱 Connected to FarmSaathi Node.js backend server! DB Records:', probe.data.stats);
+
+      // Verify session or load current user
+      var token = Storage.get('auth_token', null);
+      if (token) {
+        var meRes = await apiRequest('/api/auth/me', 'GET');
+        if (meRes.ok && meRes.data && meRes.data.user) {
+          currentUser = meRes.data.user;
+        }
+      }
+
+      // Sync profile from backend
+      var profRes = await apiRequest('/api/profile', 'GET');
+      if (profRes.ok && profRes.data && profRes.data.profile) {
+        var serverProf = profRes.data.profile;
+        var localProf = getFarmerProfile();
+        var mergedProf = Object.assign({}, localProf, serverProf);
+        saveFarmerProfileLocal(mergedProf);
+        loadProfileForm();
+      }
+
+      // Sync crops from backend
+      var cropsRes = await apiRequest('/api/crops', 'GET');
+      if (cropsRes.ok && cropsRes.data && Array.isArray(cropsRes.data.crops)) {
+        if (cropsRes.data.crops.length > 0) {
+          setSavedCrops(cropsRes.data.crops.map(function(c) {
+            return {
+              id: c.id,
+              name: c.cropName || c.name,
+              variety: c.variety || '',
+              plot: c.fieldName || c.plot || 'Farm Plot',
+              sowing_date: c.sowingDate || c.sowing_date || '',
+              stage: c.growthStage || c.stage || 'Vegetative',
+              area: c.area || '',
+              notes: c.notes || ''
+            };
+          }));
+          renderCropsList();
+        }
+      }
+
+      // Sync activities from backend
+      var actRes = await apiRequest('/api/activities', 'GET');
+      if (actRes.ok && actRes.data && Array.isArray(actRes.data.activities)) {
+        if (actRes.data.activities.length > 0) {
+          setSavedActivities(actRes.data.activities);
+          renderActivitiesList();
+        }
+      }
+
+      // Sync scan history from backend
+      var histRes = await apiRequest('/api/history', 'GET');
+      if (histRes.ok && histRes.data && Array.isArray(histRes.data.analyses)) {
+        if (histRes.data.analyses.length > 0) {
+          setSavedHistory(histRes.data.analyses.map(function(h) {
+            return {
+              id: h.id,
+              created_at: h.createdAt || h.created_at || new Date().toISOString(),
+              file_name: h.fileName || h.file_name || 'photo.jpg',
+              crop: h.crop || 'Crop Scan',
+              report: h.report,
+              isDemo: Boolean(h.isDemo)
+            };
+          }));
+          renderHistoryList();
+        }
+      }
+    } else {
+      isBackendConnected = false;
+    }
+  } catch (err) {
+    isBackendConnected = false;
+  }
+
+  updateAuthUI();
+  updateDashboardCounts();
+}
+
 function updateAuthUI() {
   var dot = $('accountDot');
   var label = $('accountLabel');
@@ -3133,12 +3361,23 @@ function updateAuthUI() {
   var storageModeText = $('txtStorageMode');
 
   var profile = getFarmerProfile();
-  var name = profile.full_name || 'Farmer';
-  if (dot) dot.className = 'account-dot offline';
-  if (label) label.textContent = name + ' · Local Demo Mode (This browser)';
-  if (triggerBtn) triggerBtn.textContent = 'Demo Profile';
-  if (badgeSync) badgeSync.textContent = 'Local Storage Mode';
-  if (storageModeText) storageModeText.textContent = 'Local Browser Storage (Offline Ready)';
+  var name = (currentUser && currentUser.fullName) || profile.full_name || 'Rahul Patil';
+  var email = (currentUser && currentUser.email) || '';
+
+  if (isBackendConnected) {
+    if (dot) dot.className = 'account-dot'; // Vibrant green
+    var acctText = '🟢 Backend Connected · ' + name + (email ? ' (' + email + ')' : ' (farmer@farmsaathi.in)');
+    if (label) label.textContent = acctText;
+    if (triggerBtn) triggerBtn.textContent = currentUser ? 'Account (' + name + ')' : 'Switch Account';
+    if (badgeSync) badgeSync.textContent = 'Node.js Backend Synced ✓';
+    if (storageModeText) storageModeText.textContent = 'Node.js Persistent JSON Database (data/database.json)';
+  } else {
+    if (dot) dot.className = 'account-dot offline'; // Orange
+    if (label) label.textContent = name + ' · Local Browser Storage (Offline Ready)';
+    if (triggerBtn) triggerBtn.textContent = 'Demo Profile';
+    if (badgeSync) badgeSync.textContent = 'Local Storage Mode';
+    if (storageModeText) storageModeText.textContent = 'Local Browser Storage (Offline Ready)';
+  }
 }
 
 window.openAuthModal = function(mode) {
@@ -3189,33 +3428,107 @@ window.setAuthTab = function(tab) {
   }
 };
 
-window.handleAuthSubmit = function(e) {
+window.handleAuthSubmit = async function(e) {
   e.preventDefault();
   var statusEl = $('authStatusMsg');
-  if (statusEl) statusEl.className = 'status-msg show ok';
-
-  var demoName = $('authFullName').value.trim() || 'Ramesh Patil';
-  var profile = getFarmerProfile();
-  profile.full_name = demoName;
-  saveFarmerProfileLocal(profile);
-  applyLanguage(getLang());
-  updateAuthUI();
-
   if (statusEl) {
-    statusEl.textContent = 'Demo profile activated as ' + demoName + '!';
+    statusEl.className = 'status-msg show';
+    statusEl.textContent = 'Connecting to backend…';
   }
-  setTimeout(closeAuthModal, 900);
+
+  if (authTab === 'demo') {
+    var demoName = $('authFullName').value.trim() || 'Rahul Patil';
+    var profile = getFarmerProfile();
+    profile.full_name = demoName;
+    saveFarmerProfileLocal(profile);
+    applyLanguage(getLang());
+    if (isBackendConnected) {
+      await apiRequest('/api/profile', 'POST', profile);
+    }
+    updateAuthUI();
+    if (statusEl) {
+      statusEl.className = 'status-msg show ok';
+      statusEl.textContent = 'Demo profile activated as ' + demoName + '!';
+    }
+    setTimeout(closeAuthModal, 900);
+    return;
+  }
+
+  var email = $('authEmail').value.trim();
+  var password = $('authPassword').value;
+
+  if (authTab === 'signup') {
+    var fullName = $('authFullName').value.trim() || 'Farmer';
+    var res = await apiRequest('/api/auth/signup', 'POST', {
+      fullName: fullName,
+      email: email,
+      password: password
+    });
+
+    if (res.ok && res.data && res.data.success) {
+      Storage.set('auth_token', res.data.token);
+      currentUser = res.data.user;
+      var prof = res.data.profile || { full_name: fullName };
+      saveFarmerProfileLocal(prof);
+      loadProfileForm();
+      isBackendConnected = true;
+      updateAuthUI();
+      if (statusEl) {
+        statusEl.className = 'status-msg show ok';
+        statusEl.textContent = 'Account created successfully! Welcome, ' + fullName + ' ✓';
+      }
+      setTimeout(closeAuthModal, 1100);
+      syncWithBackend();
+    } else {
+      if (statusEl) {
+        statusEl.className = 'status-msg show err';
+        statusEl.textContent = (res.data && res.data.error) || 'Failed to create account. Ensure server is running.';
+      }
+    }
+  } else if (authTab === 'login') {
+    var res = await apiRequest('/api/auth/login', 'POST', {
+      email: email,
+      password: password
+    });
+
+    if (res.ok && res.data && res.data.success) {
+      Storage.set('auth_token', res.data.token);
+      currentUser = res.data.user;
+      var prof = res.data.profile || { full_name: res.data.user.fullName };
+      saveFarmerProfileLocal(prof);
+      loadProfileForm();
+      isBackendConnected = true;
+      updateAuthUI();
+      if (statusEl) {
+        statusEl.className = 'status-msg show ok';
+        statusEl.textContent = 'Welcome back, ' + (res.data.user.fullName || email) + '! Logged in ✓';
+      }
+      setTimeout(closeAuthModal, 1100);
+      syncWithBackend();
+    } else {
+      if (statusEl) {
+        statusEl.className = 'status-msg show err';
+        statusEl.textContent = (res.data && res.data.error) || 'Invalid email or password.';
+      }
+    }
+  }
 };
 
 window.handleForgotPassword = function() {
-  alert('In Local Demo Mode, password reset is not required. You can edit your profile details directly.');
+  alert('Default Demo Credentials:\n• Email: farmer@farmsaathi.in\n• Password: farmer123\n\nYou can also click "Demo Mode" or create a new account.');
 };
 
-window.handleLogout = function() {
-  if (confirm('Log out / reset local session?')) {
-    saveFarmerProfileLocal({});
+window.handleLogout = async function() {
+  if (confirm('Log out from FarmSaathi AI account?')) {
+    if (isBackendConnected) {
+      try {
+        await apiRequest('/api/auth/logout', 'POST');
+      } catch (e) {}
+    }
+    Storage.remove('auth_token');
+    currentUser = null;
     updateAuthUI();
-    alert('Session reset.');
+    alert('Logged out successfully.');
     navigateTo('dashboard');
   }
 };
@@ -3225,11 +3538,13 @@ window.renderSettings = function() {
   if (!container) return;
 
   var items = [
+    ['Node.js Backend Server', isBackendConnected ? 'Active ✓ (Running on http://localhost:3000)' : 'Offline (Local browser storage mode active)'],
+    ['Database Engine', 'Persistent JSON Database (data/database.json) with auto-seeding'],
+    ['Authentication & Security', 'Multi-user sessions with scrypt password hashing'],
     ['Open-Meteo Weather API', 'Active ✓ (Live geocoding and 5-day forecasts, free service)'],
     ['AI Farming Assistant', 'Active ✓ (Multilingual advisory with agricultural guardrails)'],
     ['Crop Photo Vision Scanner', 'Active ✓ (Triage reports with visible symptom breakdown)'],
-    ['APMC Mandi Price Feed', 'Active ✓ (Verified bulletins with commodity filtering)'],
-    ['Storage Mode', 'Local Demo Mode (Offline ready & private to this browser)']
+    ['APMC Mandi Price Feed', 'Active ✓ (Verified bulletins with commodity filtering)']
   ];
 
   container.innerHTML = '';
@@ -3272,7 +3587,7 @@ function updateDashboardCounts() {
 // ==============================================================================
 // INITIALIZATION
 // ==============================================================================
-function initApp() {
+async function initApp() {
   console.log('🌱 FarmSaathi AI initializing…');
   var savedLang = getLang();
   applyLanguage(savedLang);
@@ -3299,6 +3614,9 @@ function initApp() {
   var p = getFarmerProfile();
   var defaultLoc = (p.district || p.village) ? (p.district || p.village) + ', ' + (p.state || 'Maharashtra') : 'Gadchiroli, Maharashtra';
   fetchWeather(defaultLoc);
+
+  // Synchronize with live backend if available
+  await syncWithBackend();
 }
 
 // Run immediately

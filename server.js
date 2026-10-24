@@ -1,5 +1,5 @@
 // FarmSaathi AI - Local Development & Production Server
-// Zero-dependency Node.js server that runs static frontend and Netlify serverless functions locally.
+// Zero-dependency Node.js server with REST APIs, persistent JSON database, and static file serving.
 // Usage: node server.js
 
 const http = require('http');
@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-// Simple .env parser (zero-dependency)
+// Load environment variables from .env if present
 function loadEnv() {
   const envPath = path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
@@ -30,6 +30,7 @@ function loadEnv() {
 
 loadEnv();
 
+const routes = require('./backend/routes');
 const PORT = process.env.PORT || 3000;
 const FUNCTIONS_DIR = path.join(__dirname, 'netlify', 'functions');
 
@@ -50,9 +51,9 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
-  // Enable CORS
+  // Global CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -61,14 +62,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Handle Netlify Functions endpoints
-  const isFunction = pathname.startsWith('/.netlify/functions/') || pathname.startsWith('/api/');
-  if (isFunction) {
-    const funcName = pathname
-      .replace('/.netlify/functions/', '')
-      .replace('/api/', '')
-      .replace(/\/$/, '');
+  // 1. Route through Backend REST API
+  if (pathname.startsWith('/api/')) {
+    const handled = await routes.handleApiRequest(req, res);
+    if (handled) return;
+  }
 
+  // 2. Fallback to Netlify Functions endpoints if prefixed with /.netlify/functions/
+  if (pathname.startsWith('/.netlify/functions/')) {
+    const funcName = pathname.replace('/.netlify/functions/', '').replace(/\/$/, '');
     const funcFile = path.join(FUNCTIONS_DIR, `${funcName}.js`);
 
     if (fs.existsSync(funcFile)) {
@@ -113,7 +115,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // Serve static files with no-cache headers for instant updates
+  // 3. Serve static files with no-cache headers for instant code reload
   let safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
   if (safePath === '/' || safePath === '\\') safePath = '/index.html';
 
@@ -162,11 +164,16 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n======================================================`);
-  console.log(`  🌱 FarmSaathi AI Server Running`);
+  console.log(`  🌱 FarmSaathi AI - Full-Stack Agriculture Server`);
   console.log(`======================================================`);
-  console.log(`  Local URL:        http://localhost:${PORT}`);
-  console.log(`  Mandi API:        http://localhost:${PORT}/.netlify/functions/mandi`);
-  console.log(`  Chat API:         http://localhost:${PORT}/.netlify/functions/chat`);
-  console.log(`  Analyze API:      http://localhost:${PORT}/.netlify/functions/analyze`);
+  console.log(`  Frontend Web:     http://localhost:${PORT}`);
+  console.log(`  Health Status:    http://localhost:${PORT}/api/status`);
+  console.log(`  Auth API:         http://localhost:${PORT}/api/auth/me`);
+  console.log(`  Crops API:        http://localhost:${PORT}/api/crops`);
+  console.log(`  Activities API:   http://localhost:${PORT}/api/activities`);
+  console.log(`  Mandi API:        http://localhost:${PORT}/api/mandi`);
+  console.log(`  Chat API:         http://localhost:${PORT}/api/chat`);
+  console.log(`  Analyze API:      http://localhost:${PORT}/api/analyze`);
+  console.log(`  Database File:    ./data/database.json`);
   console.log(`======================================================\n`);
 });

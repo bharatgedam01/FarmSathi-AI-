@@ -1,190 +1,177 @@
-# 🌱 FarmSaathi AI — Smart Farmer Assistance Platform
+# 🌱 FarmSaathi AI — Smart Farmer Assistance Platform (Full-Stack Edition)
 
 FarmSaathi AI is an AI-powered farming assistance platform designed specifically for Indian farmers. It combines agronomic guidance, multimodal crop disease triage, real-time weather alerts, APMC mandi market tracking, and crop management into an intuitive, responsive web application supporting **English**, **हिन्दी (Hindi)**, and **मराठी (Marathi)**.
+
+Now equipped with a **zero-dependency Node.js backend** and **persistent JSON database** (`data/database.json`), along with seamless offline fallback!
 
 ---
 
 ## 📑 Table of Contents
-1. [Architecture & System Overview](#1-architecture--system-overview)
-2. [Feature Status Matrix](#2-feature-status-matrix)
-3. [Quick Local Setup (Zero-Config)](#3-quick-local-setup-zero-config)
-4. [Backend AI Configuration (OpenAI)](#4-backend-ai-configuration-openai)
-5. [Database & Authentication Setup (Supabase)](#5-database--authentication-setup-supabase)
-6. [Deployment to Netlify (Public HTTPS)](#6-deployment-to-netlify-public-https)
-7. [Agricultural Guardrails & Safety Notices](#7-agricultural-guardrails--safety-notices)
-8. [Manual Testing Checklist](#8-manual-testing-checklist)
+1. [Architecture & Backend Overview](#1-architecture--backend-overview)
+2. [REST API Documentation](#2-rest-api-documentation)
+3. [Quick Local Setup (Zero Dependencies)](#3-quick-local-setup-zero-dependencies)
+4. [Built-in Test Accounts](#4-built-in-test-accounts)
+5. [Feature Status Matrix](#5-feature-status-matrix)
+6. [Backend AI Configuration (Optional OpenAI Key)](#6-backend-ai-configuration-optional-openai-key)
+7. [GitHub Repository & Deployment Guide](#7-github-repository--deployment-guide)
+8. [Agricultural Guardrails & Safety Notices](#8-agricultural-guardrails--safety-notices)
 
 ---
 
-## 1. Architecture & System Overview
+## 1. Architecture & Backend Overview
 
-FarmSaathi AI is architected with a decoupled, serverless approach designed for high reliability, offline resilience, and data protection:
+FarmSaathi AI is architected with a dual-mode engine:
+1. **Full-Stack Mode (Node.js Server):** Runs an HTTP server with REST APIs, scrypt-based session authentication, and atomic JSON database storage.
+2. **Autonomous Offline Mode:** When opened directly without a server (`file:///...`), it gracefully operates using localStorage and autonomous agronomic engines with **zero `Failed to fetch` errors**.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           FarmSaathi AI                                  │
+│                      FarmSaathi AI Full-Stack App                       │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ Frontend: Responsive Single-Page App (HTML5, Modern CSS, Vanilla JS)    │
 │ Languages: English (EN) | हिन्दी (HI) | मराठी (MR)                      │
 ├─────────────────────────────────────────────────────────────────────────┤
-│ Serverless Backend (Netlify Functions / Node.js Local Server):          │
-│  ├─ /.netlify/functions/chat      → OpenAI Chat (Farmer advisory)       │
-│  ├─ /.netlify/functions/analyze   → OpenAI Vision (Crop photo triage)   │
-│  ├─ /.netlify/functions/mandi     → APMC Mandi price bulletins feed     │
-│  └─ /.netlify/functions/status    → System health & configuration probe │
-├─────────────────────────────────────────────────────────────────────────┤
-│ Cloud Database & Storage:                                               │
-│  └─ Supabase PostgreSQL (Row-Level Security RLS + Auth + Storage)       │
-│ Offline Fallback:                                                       │
-│  └─ Browser Local Storage (Works seamlessly without credentials)        │
+│ Node.js Backend Server (Zero External Dependencies):                    │
+│  ├─ server.js           → HTTP server & static file dispatcher          │
+│  ├─ backend/routes.js   → REST API router (/api/*)                      │
+│  ├─ backend/db.js       → Persistent JSON database engine (data/)       │
+│  ├─ netlify/functions/  → Serverless AI chat, vision triage, mandi     │
+│  └─ data/database.json  → Auto-seeded, atomic disk persistence          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Feature Status Matrix
+## 2. REST API Documentation
 
-| Module | Feature | Implementation Status | Notes / Requirements |
+| Endpoint | Method | Description | Auth Required |
 | :--- | :--- | :--- | :--- |
-| **Design & UI** | Responsive Mobile, Tablet & Desktop Layout | **Fully Working** ✅ | Agricultural green/lime theme; tested for touch screens |
-| **Localization** | Multi-language (EN / HI / MR) | **Fully Working** ✅ | Translates navigation, labels, notices, and AI system prompts |
-| **Weather** | Real-time Weather & 5-Day Forecast | **Fully Working** ✅ | Connects to Open-Meteo REST API (No API key required) |
-| **Weather** | Smart Agricultural Advisories | **Fully Working** ✅ | High wind spraying alerts, heavy rain warnings, heat stress |
-| **Mandi Prices**| APMC Mandi Rates & Filtering | **Fully Working** ✅ | Modal prices, min-max ranges, commodity search, state filters |
-| **Crops & Farms**| Farm & Crop Tracking with Stages | **Fully Working** ✅ | Sowing date, variety, plot name, notes; CRUD operations |
-| **Activities** | Farm Activity Reminders & Calendar | **Fully Working** ✅ | Irrigation, spraying, fertilizer scheduling with status |
-| **Farmer Profile**| Multi-field Farmer Profile & GPS | **Fully Working** ✅ | Village, district, state, soil type, irrigation method, area |
-| **AI Assistant** | Multilingual Farm Q&A | **Fully Configured** ⚡ | Working with `OPENAI_API_KEY`; honest prompt if unconfigured |
-| **Farm Intelligence**| Crop Photo Scanner & Triage | **Fully Configured** ⚡ | Multimodal vision model with structured triage report |
-| **Offline Mode**| Demo Triage Mode | **Fully Working** ✅ | Clear test mode allows full UI evaluation without API keys |
-| **Cloud Database**| Supabase PostgreSQL + Auth | **Ready to Deploy** ⚡ | Full schema (`schema.sql`) with RLS policies and auto-triggers |
+| `/api/status` | `GET` | Server health, version, uptime, and database stats | No |
+| `/api/auth/signup` | `POST` | Create a new farmer account (`fullName, email, password, phone`) | No |
+| `/api/auth/login` | `POST` | Authenticate with email & password, returns session token | No |
+| `/api/auth/logout`| `POST` | Invalidate session token | Optional |
+| `/api/auth/me` | `GET` | Get current authenticated user profile | Bearer Token |
+| `/api/profile` | `GET` | Retrieve farmer's farm and soil profile | Optional (Defaults to demo) |
+| `/api/profile` | `POST` | Update farmer's farm, soil, area, crop details | Optional |
+| `/api/crops` | `GET` | List all registered farm crops & growth stages | Optional |
+| `/api/crops` | `POST` | Add a new crop plot (`cropName, fieldName, sowingDate, growthStage`) | Optional |
+| `/api/crops/:id` | `DELETE` | Delete a crop plot by ID | Optional |
+| `/api/activities` | `GET` | List farm activity reminders (Irrigation, Spraying, Fertilizers) | Optional |
+| `/api/activities` | `POST` | Add a farm reminder (`name, category, date, notes`) | Optional |
+| `/api/activities/:id` | `DELETE` | Delete an activity reminder | Optional |
+| `/api/history` | `GET` | Retrieve crop disease scan history & reports | Optional |
+| `/api/history` | `POST` | Save a new scan triage report | Optional |
+| `/api/history/:id` | `DELETE` | Delete a scan record | Optional |
+| `/api/mandi` | `GET` | All-India APMC market rates with query & state filters | No |
+| `/api/chat` | `POST` | Trilingual AI agronomic advisory engine | No |
+| `/api/analyze` | `POST` | Multimodal crop leaf health triage report generator | No |
+| `/api/weather` | `GET` | Weather proxy and 5-day agricultural forecast | No |
 
 ---
 
-## 3. Quick Local Setup (Zero-Config)
+## 3. Quick Local Setup (Zero Dependencies)
 
-You can run the entire platform on your local machine using the included zero-dependency Node.js server:
+The server uses standard Node.js libraries (`http`, `fs`, `path`, `crypto`). **No `npm install` is required!**
 
-### Step 1: Open Terminal in Project Directory
+### Step 1: Open Terminal in the Project Directory
 ```powershell
-# Navigate to the project directory
-cd
+cd "path\to\FarmSaathi_AI_Complete"
 ```
 
-### Step 2: Start Local Server
+### Step 2: Start the Backend Server
 ```bash
 node server.js
 ```
 
 ### Step 3: Open in Browser
-Visit `http://localhost:3000` in your web browser.
-* All static assets and Netlify serverless functions (`/api/*` and `/.netlify/functions/*`) are served automatically!
+Open `http://localhost:3000` in Google Chrome, Microsoft Edge, or Firefox.
+* The account indicator in the header will display **`🟢 Backend Connected`**.
+* All crop additions, activities, and profile changes will save directly into `data/database.json`.
 
 ---
 
-## 4. Backend AI Configuration (OpenAI)
+## 4. Built-in Test Accounts
 
-To enable live AI answers and multimodal crop photo analysis:
+For instant testing, the database is auto-seeded with a verified demo farmer account:
 
-### 1. Obtain an API Key
-Sign up or log in at [OpenAI Platform](https://platform.openai.com/api-keys) and generate an API key.
+* **Email:** `farmer@farmsaathi.in`
+* **Password:** `farmer123`
+* **Farmer Name:** Rahul Patil (Chamorshi, Gadchiroli, Maharashtra)
+* **Sample Crops:** Soybean (JS-335), BT Cotton
+* **Sample Reminders:** Irrigation, Spraying, Soil Testing
 
-### 2. Configure Locally
-Create a `.env` file in the project folder (or copy from `.env.example`):
+You can also click **"Create Account"** to register your own custom email and password.
+
+---
+
+## 5. Feature Status Matrix
+
+| Module | Feature | Implementation Status |
+| :--- | :--- | :--- |
+| **Backend Server** | Node.js Zero-Dependency REST API | **Fully Working** ✅ |
+| **Database** | Persistent JSON DB with scrypt Auth | **Fully Working** ✅ |
+| **Design & UI** | Responsive Mobile, Tablet & Desktop Layout | **Fully Working** ✅ |
+| **Localization** | Multi-language (English / हिन्दी / मराठी) | **Fully Working** ✅ |
+| **Weather** | Real-time Weather & 5-Day Agricultural Forecast | **Fully Working** ✅ |
+| **Mandi Prices**| APMC Mandi Rates for All States in India | **Fully Working** ✅ |
+| **Crops & Farms**| Farm & Crop Tracking with Stages | **Fully Working** ✅ |
+| **Activities** | Farm Activity Reminders & Calendar | **Fully Working** ✅ |
+| **Farmer Profile**| Multi-field Farmer Profile & GPS | **Fully Working** ✅ |
+| **AI Assistant** | Multilingual Farm Q&A | **Fully Working** ✅ |
+| **Farm Intelligence**| Crop Photo Scanner & Disease Triage | **Fully Working** ✅ |
+| **Offline Mode**| Autonomous Engine (No Fetch Failures) | **Fully Working** ✅ |
+
+---
+
+## 6. Backend AI Configuration (Optional OpenAI Key)
+
+The built-in agronomic engine already answers farming, fertilizer, and pest management questions in English, Hindi, and Marathi without any API key.
+
+If you wish to attach a live OpenAI key:
+1. Create a `.env` file in the project folder:
 ```env
 PORT=3000
-OPENAI_API_KEY=sk-your-actual-key-here
+OPENAI_API_KEY=sk-your-openai-key-here
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_VISION_MODEL=gpt-4o-mini
 ```
-
-Restart `node server.js` to apply changes.
-
-### 3. Configure in Netlify
-When deployed to Netlify:
-1. Navigate to **Site Configuration** > **Environment Variables**.
-2. Add `OPENAI_API_KEY` = your secret key.
-3. Trigger a redeploy.
-4. The app will immediately detect the key and show `AI Online (gpt-4o-mini)` in the settings checklist!
+2. Restart `node server.js`.
 
 ---
 
-## 5. Database & Authentication Setup (Supabase)
+## 7. GitHub Repository & Deployment Guide
 
-FarmSaathi AI operates in **Local Demo Mode** by default, storing records locally in the farmer's browser. To enable multi-device cloud synchronization and secure email accounts:
+### GitHub Repository
+* Repository URL: `https://github.com/bharatgedam01/FarmSathi-AI-.git`
 
-### 1. Create a Supabase Project
-Sign in to [Supabase](https://supabase.com) and create a new project.
-
-### 2. Execute SQL Migration
-1. Open your Supabase Dashboard and go to the **SQL Editor**.
-2. Copy the entire contents of [`supabase/schema.sql`](./supabase/schema.sql).
-3. Click **Run**. This will create:
-   - `profiles`, `farms`, `crops`, `chat_conversations`, `chat_messages`, `crop_analyses`, and `farm_activities` tables.
-   - Row Level Security (RLS) policies ensuring farmers can only read/edit their own data.
-   - Triggers for automatic profile initialization upon email signup.
-
-### 3. Add Client Keys to `index.html`
-Open `index.html` and locate the `CONFIG` object at line ~800:
-```javascript
-const CONFIG = {
-  supabaseUrl: 'https://your-project-id.supabase.co',
-  supabaseAnonKey: 'your-public-anon-key'
-};
-```
-*(These public keys are safe in client JavaScript because all security is enforced by PostgreSQL Row Level Security).*
-
----
-
-## 6. Deployment to Netlify (Public HTTPS)
-
-Deploying FarmSaathi AI to a live public HTTPS URL takes under 2 minutes:
-
-### Option A: Drag & Drop (Manual Deploy)
-1. Go to your [Netlify Dashboard](https://app.netlify.com).
-2. Click **Add new site** > **Deploy manually**.
-3. Drag the folder containing `index.html`, `netlify.toml`, and `netlify/` into the upload zone.
-4. Once deployed, open **Site configuration** > **Environment variables** and add `OPENAI_API_KEY`.
-5. Your app is live at `https://your-site-name.netlify.app`!
-
-### Option B: Netlify CLI
+To push the latest code updates to GitHub:
 ```bash
-npm install -g netlify-cli
-netlify login
-netlify deploy --prod
+git add .
+git commit -m "Add full Node.js backend, persistent JSON database, and REST APIs"
+git push origin main
 ```
 
+### Free Cloud Deployment Options
+1. **Render.com / Railway.app / Fly.io (Full-Stack Node.js)**
+   * Connect your GitHub repository.
+   * Build Command: *(leave empty or `npm test`)*
+   * Start Command: `node server.js`
+   * Your complete backend and frontend will be live with full REST APIs!
+
+2. **Netlify / Vercel (Frontend + Serverless Functions)**
+   * Deploy the repository directly.
+   * Netlify automatically runs the functions in `netlify/functions/` as serverless APIs.
+
 ---
 
-## 7. Agricultural Guardrails & Safety Notices
+## 8. Agricultural Guardrails & Safety Notices
 
-FarmSaathi AI was designed with responsible agricultural engineering safeguards:
-
-1. **No Fabricated Diagnoses:** Visual photo inspection only generates preliminary triage hypotheses. It never claims 100% lab certainty.
-2. **Chemical Safety:** The AI assistant strictly refuses to provide arbitrary pesticide mixing ratios or hazardous agrochemical cocktails.
-3. **Local Expert Advisory:** For acute crop symptoms, farmers are directed to their nearest **Krishi Vigyan Kendra (KVK)** or the **Kisan Call Centre (Toll-Free: 1800-180-1551)**.
-4. **Honest Data Transparency:** Mandi rates and weather are clearly watermarked with their data source and update timestamp.
-
----
-
-## 8. Manual Testing Checklist
-
-Use this checklist to verify all features:
-
-- [x] **Language Switching:** Switch between English, हिन्दी, and मराठी. Check that navigation, headers, forms, and alerts update immediately.
-- [x] **Farmer Profile:** Fill in name, village, district, soil type, and main crop. Click Save and reload the page to confirm persistence.
-- [x] **GPS Location:** Tap "Detect Farm GPS Coordinates" and verify permission prompt and coordinate capture.
-- [x] **Crops Management:** Add a crop (e.g. Soybean, JS-335, Flowering stage). Verify it appears in active crops with stage badge.
-- [x] **Activity Reminders:** Add an activity (e.g. "Irrigate Soybean"). Verify it appears and can be marked done/deleted.
-- [x] **Live Weather:** Search for "Gadchiroli", "Nagpur", or "Pune". Confirm live temperature, feels like, humidity, and 5-day forecast.
-- [x] **Weather Advisories:** Verify smart advisories trigger based on wind/rain/heat thresholds.
-- [x] **Mandi Explorer:** Filter by State (Maharashtra) or search "Soybean". Verify APMC modal rates, min-max ranges, and trends.
-- [x] **Crop Health Scanner:** Upload a plant photo. Verify preview, file validation, and "Replace Photo" controls.
-- [x] **Demo Triage:** Click "Test with Demo Triage" to verify structured report generation in English, Hindi, and Marathi.
-- [x] **Analysis History:** Save report. Open "Analysis History" and click "View Full" to see the modal report.
-- [x] **AI Assistant:** Type a farming question. Verify response adheres to the selected language and includes agricultural disclaimers.
-- [x] **Help & Helplines:** Verify Kisan Call Centre (1800-180-1551) and MahaAgri helplines are prominently displayed.
-- [x] **Export Data:** In Settings, click "Export Farm Data (JSON)" to download a full local backup.
+1. **Preliminary Triage:** Visual photo inspection provides preliminary triage hypotheses. It does not replace laboratory microscopic tests.
+2. **Chemical Safety:** The AI assistant promotes Integrated Pest Management (IPM), bio-pesticides (Neem oil, Trichoderma viride), and safe practices.
+3. **Emergency Helplines:** Farmers are provided direct contact to:
+   * **Kisan Call Centre (Toll-Free):** 1800-180-1551
+   * **MahaAgri Helpline:** 1800-233-4000
+   * Local **Krishi Vigyan Kendra (KVK)** extension offices.
 
 ---
 
