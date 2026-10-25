@@ -6,6 +6,78 @@
 (function(window) {
   'use strict';
 
+  // Ensure window.Storage is available immediately in this module
+  window.Storage = window.Storage || {
+    get: function(key, fallback) {
+      try {
+        var data = localStorage.getItem('fs_' + key);
+        return data !== null ? JSON.parse(data) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    },
+    set: function(key, value) {
+      try {
+        localStorage.setItem('fs_' + key, JSON.stringify(value));
+      } catch (e) {}
+    },
+    remove: function(key) {
+      try {
+        localStorage.removeItem('fs_' + key);
+      } catch (e) {}
+    }
+  };
+
+  // Ensure window.apiRequest is available immediately in this module
+  var API_BASE = (typeof location !== 'undefined' && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+
+  window.apiRequest = window.apiRequest || async function apiRequest(endpoint, method, data) {
+    var headers = { 'Content-Type': 'application/json' };
+    var token = null;
+    try {
+      token = window.Storage.get('auth_token', null);
+      if (!token) {
+        var rawToken = localStorage.getItem('fs_auth_token');
+        if (rawToken) {
+          try { token = JSON.parse(rawToken); } catch (e) { token = rawToken; }
+        }
+      }
+    } catch (e) {}
+
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    var cleanPath = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+    var baseUrl = (typeof location !== 'undefined' && location.origin && location.origin !== 'null' && location.protocol !== 'file:')
+      ? location.origin
+      : 'http://localhost:3000';
+    var url = cleanPath.startsWith('http') ? cleanPath : (baseUrl + cleanPath);
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
+
+    try {
+      var opts = {
+        method: method || 'GET',
+        headers: headers
+      };
+      if (controller) opts.signal = controller.signal;
+      if (data && ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || '').toUpperCase())) {
+        opts.body = typeof data === 'string' ? data : JSON.stringify(data);
+      }
+      var res = await fetch(url, opts);
+      if (timer) clearTimeout(timer);
+      var json = null;
+      try {
+        json = await res.json();
+      } catch (pe) {
+        json = { error: 'Failed to parse response' };
+      }
+      return { ok: res.ok, status: res.status, data: json };
+    } catch (err) {
+      if (timer) clearTimeout(timer);
+      return { ok: false, error: err.message };
+    }
+  };
+
   var currentUser = null;
 
   function $(id) {
@@ -22,6 +94,10 @@
       if (user) window.Storage.set('current_user', user);
       else window.Storage.remove('current_user');
     }
+    try {
+      if (user) localStorage.setItem('fs_current_user', JSON.stringify(user));
+      else localStorage.removeItem('fs_current_user');
+    } catch (e) {}
     updateAuthUI();
   }
 
@@ -35,39 +111,54 @@
       throw new Error('Please enter both email and password.');
     }
 
-    // Try Supabase Auth
-    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-      var sbData = await window.SupabaseClient.signIn(email, password);
-      if (sbData && sbData.user) {
-        var userMeta = sbData.user.user_metadata || {};
-        var user = {
-          id: sbData.user.id,
-          fullName: userMeta.full_name || email.split('@')[0],
-          email: sbData.user.email,
-          authProvider: 'supabase'
-        };
-        setCurrentUser(user);
-        return { success: true, user: user, session: sbData.session };
+    // 1. Try Supabase Auth first
+    if (window.SupabaseClient) {
+      if (!window.SupabaseClient.isConfigured() && typeof window.SupabaseClient.initFromApi === 'function') {
+        try {
+          await window.SupabaseClient.initFromApi();
+        } catch (e) {}
+      }
+
+      if (window.SupabaseClient.isConfigured()) {
+        var sbData = await window.SupabaseClient.signIn(email, password);
+        if (sbData && sbData.user) {
+          var userMeta = sbData.user.user_metadata || {};
+          var user = {
+            id: sbData.user.id,
+            fullName: userMeta.full_name || email.split('@')[0],
+            email: sbData.user.email,
+            authProvider: 'supabase'
+          };
+          setCurrentUser(user);
+          return { success: true, user: user, session: sbData.session };
+        }
       }
     }
 
-    // Fallback to Backend REST API
-    var res = await window.apiRequest('/api/auth/login', 'POST', {
-      email: email,
-      password: password
-    });
+    // 2. Fallback to Backend REST API (when Supabase is not configured in this environment)
+    if (typeof window.apiRequest === 'function') {
+      var res = await window.apiRequest('/api/auth/login', 'POST', {
+        email: email,
+        password: password
+      });
 
-    if (res.ok && res.data && res.data.success) {
-      if (window.Storage) {
-        window.Storage.set('auth_token', res.data.token);
+      if (res.ok && res.data && res.data.success) {
+        if (window.Storage) {
+          window.Storage.set('auth_token', res.data.token);
+        }
+        try {
+          localStorage.setItem('fs_auth_token', JSON.stringify(res.data.token));
+        } catch (e) {}
+        var backendUser = Object.assign({}, res.data.user, { authProvider: 'backend' });
+        setCurrentUser(backendUser);
+        return { success: true, user: backendUser, token: res.data.token };
+      } else {
+        var errMsg = (res.data && res.data.error) || 'Invalid email or password.';
+        throw new Error(errMsg);
       }
-      var backendUser = Object.assign({}, res.data.user, { authProvider: 'backend' });
-      setCurrentUser(backendUser);
-      return { success: true, user: backendUser, token: res.data.token };
-    } else {
-      var errMsg = (res.data && res.data.error) || 'Invalid email or password.';
-      throw new Error(errMsg);
     }
+
+    throw new Error('Authentication service is not configured. Please check your Supabase or server connection.');
   }
 
   // 2. SIGN UP / REGISTER
@@ -82,54 +173,68 @@
       throw new Error('Password must be at least 6 characters.');
     }
 
-    // Try Supabase Auth
-    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-      var sbData = await window.SupabaseClient.signUp(email, password, fullName.trim());
-      var needsEmailConfirmation = false;
-      if (sbData && sbData.user && (!sbData.session || !sbData.user.confirmed_at)) {
-        // If identities exist and confirmed_at is null, email confirmation required
-        if (Array.isArray(sbData.user.identities) && sbData.user.identities.length === 0) {
-          throw new Error('An account with this email address already exists. Please log in.');
+    // 1. Try Supabase Auth first
+    if (window.SupabaseClient) {
+      if (!window.SupabaseClient.isConfigured() && typeof window.SupabaseClient.initFromApi === 'function') {
+        try {
+          await window.SupabaseClient.initFromApi();
+        } catch (e) {}
+      }
+
+      if (window.SupabaseClient.isConfigured()) {
+        var sbData = await window.SupabaseClient.signUp(email, password, fullName.trim());
+        var needsEmailConfirmation = false;
+        if (sbData && sbData.user && (!sbData.session || !sbData.user.confirmed_at)) {
+          if (Array.isArray(sbData.user.identities) && sbData.user.identities.length === 0) {
+            throw new Error('An account with this email address already exists. Please log in.');
+          }
+          needsEmailConfirmation = !sbData.session;
         }
-        needsEmailConfirmation = !sbData.session;
-      }
 
-      if (sbData && sbData.session && sbData.user) {
-        var user = {
-          id: sbData.user.id,
-          fullName: fullName.trim(),
-          email: sbData.user.email,
-          authProvider: 'supabase'
+        if (sbData && sbData.session && sbData.user) {
+          var user = {
+            id: sbData.user.id,
+            fullName: fullName.trim(),
+            email: sbData.user.email,
+            authProvider: 'supabase'
+          };
+          setCurrentUser(user);
+          return { success: true, user: user, needsConfirmation: false };
+        }
+
+        return {
+          success: true,
+          user: sbData.user,
+          needsConfirmation: needsEmailConfirmation
         };
-        setCurrentUser(user);
-        return { success: true, user: user, needsConfirmation: false };
       }
-
-      return {
-        success: true,
-        user: sbData.user,
-        needsConfirmation: needsEmailConfirmation
-      };
     }
 
-    // Fallback to Backend REST API
-    var res = await window.apiRequest('/api/auth/signup', 'POST', {
-      fullName: fullName.trim(),
-      email: email.trim(),
-      password: password
-    });
+    // 2. Fallback to Backend REST API (when Supabase is not configured)
+    if (typeof window.apiRequest === 'function') {
+      var res = await window.apiRequest('/api/auth/signup', 'POST', {
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password: password
+      });
 
-    if (res.ok && res.data && res.data.success) {
-      if (window.Storage) {
-        window.Storage.set('auth_token', res.data.token);
+      if (res.ok && res.data && res.data.success) {
+        if (window.Storage) {
+          window.Storage.set('auth_token', res.data.token);
+        }
+        try {
+          localStorage.setItem('fs_auth_token', JSON.stringify(res.data.token));
+        } catch (e) {}
+        var backendUser = Object.assign({}, res.data.user, { authProvider: 'backend' });
+        setCurrentUser(backendUser);
+        return { success: true, user: backendUser, needsConfirmation: false };
+      } else {
+        var errMsg = (res.data && res.data.error) || 'Failed to create account.';
+        throw new Error(errMsg);
       }
-      var backendUser = Object.assign({}, res.data.user, { authProvider: 'backend' });
-      setCurrentUser(backendUser);
-      return { success: true, user: backendUser, needsConfirmation: false };
-    } else {
-      var errMsg = (res.data && res.data.error) || 'Failed to create account.';
-      throw new Error(errMsg);
     }
+
+    throw new Error('Authentication service is not configured. Please check your Supabase or server connection.');
   }
 
   // 3. REQUEST PASSWORD RESET
@@ -138,13 +243,21 @@
       throw new Error('Please enter your registered email address.');
     }
 
-    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-      var redirectUrl = window.location.origin + '/reset-password.html';
-      await window.SupabaseClient.resetPasswordForEmail(email.trim(), redirectUrl);
-      return { success: true, message: 'Password reset link sent to your email.' };
+    if (window.SupabaseClient) {
+      if (!window.SupabaseClient.isConfigured() && typeof window.SupabaseClient.initFromApi === 'function') {
+        try {
+          await window.SupabaseClient.initFromApi();
+        } catch (e) {}
+      }
+
+      if (window.SupabaseClient.isConfigured()) {
+        var redirectUrl = window.location.origin + '/reset-password.html';
+        await window.SupabaseClient.resetPasswordForEmail(email.trim(), redirectUrl);
+        return { success: true, message: 'Password reset link sent to your email.' };
+      }
     }
 
-    // Local / Backend simulation
+    // Local / Backend fallback notice
     return {
       success: true,
       message: 'If your email is registered, password reset instructions have been sent.'
@@ -157,9 +270,17 @@
       throw new Error('New password must be at least 6 characters.');
     }
 
-    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-      await window.SupabaseClient.updatePassword(newPassword);
-      return { success: true, message: 'Password updated successfully!' };
+    if (window.SupabaseClient) {
+      if (!window.SupabaseClient.isConfigured() && typeof window.SupabaseClient.initFromApi === 'function') {
+        try {
+          await window.SupabaseClient.initFromApi();
+        } catch (e) {}
+      }
+
+      if (window.SupabaseClient.isConfigured()) {
+        await window.SupabaseClient.updatePassword(newPassword);
+        return { success: true, message: 'Password updated successfully!' };
+      }
     }
 
     throw new Error('Supabase client is not configured for password updates.');
@@ -179,11 +300,11 @@
     }
 
     try {
-      if (window.isBackendConnected) {
+      if (typeof window.apiRequest === 'function') {
         await window.apiRequest('/api/auth/logout', 'POST');
       }
     } catch (e) {
-      console.warn('Backend logout error:', e);
+      console.warn('Backend logout notice:', e);
     }
 
     if (window.Storage) {
@@ -194,6 +315,7 @@
     try {
       localStorage.removeItem('fs_auth_token');
       localStorage.removeItem('fs_current_user');
+      localStorage.removeItem('fs_farmer_profile');
     } catch (e) {}
 
     currentUser = null;
@@ -258,7 +380,9 @@
     // 1. Check Supabase session
     if (window.SupabaseClient) {
       if (typeof window.SupabaseClient.initFromApi === 'function') {
-        await window.SupabaseClient.initFromApi();
+        try {
+          await window.SupabaseClient.initFromApi();
+        } catch (e) {}
       }
 
       if (window.SupabaseClient.isConfigured()) {
@@ -273,6 +397,9 @@
               authProvider: 'supabase'
             };
             if (window.Storage) window.Storage.set('current_user', currentUser);
+            try {
+              localStorage.setItem('fs_current_user', JSON.stringify(currentUser));
+            } catch (e) {}
             updateAuthUI();
             return currentUser;
           }
@@ -282,27 +409,47 @@
       }
     }
 
-    // 2. Check stored session
+    // 2. Check stored session in Storage or localStorage
+    var storedUser = null;
     if (window.Storage) {
-      var storedUser = window.Storage.get('current_user', null);
-      var token = window.Storage.get('auth_token', null);
-      if (storedUser) {
-        currentUser = storedUser;
-        updateAuthUI();
-        return currentUser;
-      }
+      storedUser = window.Storage.get('current_user', null);
+    }
+    if (!storedUser) {
+      try {
+        var raw = localStorage.getItem('fs_current_user');
+        if (raw) storedUser = JSON.parse(raw);
+      } catch (e) {}
+    }
 
-      if (token && window.apiRequest) {
-        try {
-          var meRes = await window.apiRequest('/api/auth/me', 'GET');
-          if (meRes.ok && meRes.data && meRes.data.user) {
-            currentUser = Object.assign({}, meRes.data.user, { authProvider: 'backend' });
-            window.Storage.set('current_user', currentUser);
-            updateAuthUI();
-            return currentUser;
-          }
-        } catch (e) {}
-      }
+    var token = (window.Storage && window.Storage.get('auth_token', null));
+    if (!token) {
+      try {
+        var rawT = localStorage.getItem('fs_auth_token');
+        if (rawT) {
+          try { token = JSON.parse(rawT); } catch (e) { token = rawT; }
+        }
+      } catch (e) {}
+    }
+
+    if (storedUser) {
+      currentUser = storedUser;
+      updateAuthUI();
+      return currentUser;
+    }
+
+    if (token && typeof window.apiRequest === 'function') {
+      try {
+        var meRes = await window.apiRequest('/api/auth/me', 'GET');
+        if (meRes.ok && meRes.data && meRes.data.user) {
+          currentUser = Object.assign({}, meRes.data.user, { authProvider: 'backend' });
+          if (window.Storage) window.Storage.set('current_user', currentUser);
+          try {
+            localStorage.setItem('fs_current_user', JSON.stringify(currentUser));
+          } catch (e) {}
+          updateAuthUI();
+          return currentUser;
+        }
+      } catch (e) {}
     }
 
     return null;
@@ -322,6 +469,9 @@
               authProvider: 'supabase'
             };
             if (window.Storage) window.Storage.set('current_user', currentUser);
+            try {
+              localStorage.setItem('fs_current_user', JSON.stringify(currentUser));
+            } catch (e) {}
             updateAuthUI();
           } else if (event === 'SIGNED_OUT') {
             currentUser = null;
@@ -329,6 +479,10 @@
               window.Storage.remove('current_user');
               window.Storage.remove('auth_token');
             }
+            try {
+              localStorage.removeItem('fs_current_user');
+              localStorage.removeItem('fs_auth_token');
+            } catch (e) {}
             updateAuthUI();
           }
         });

@@ -34,8 +34,8 @@
     }
   };
 
-  window.Storage = Storage;
-  window.$ = $;
+  window.Storage = window.Storage || Storage;
+  window.$ = window.$ || $;
 
   // ============================================================================
   // MULTILINGUAL DICTIONARY (English, Hindi, Marathi)
@@ -209,7 +209,7 @@
     }
   }
 
-  window.apiRequest = apiRequest;
+  window.apiRequest = window.apiRequest || apiRequest;
   window.isBackendConnected = isBackendConnected;
 
   // ============================================================================

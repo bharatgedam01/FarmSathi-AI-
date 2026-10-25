@@ -5,6 +5,78 @@
 (function(window) {
   'use strict';
 
+  // ============================================================================
+  // GLOBAL STORAGE & REST API UTILITIES
+  // Available to all pages (landing, login, register, reset-password, dashboard)
+  // ============================================================================
+  window.Storage = window.Storage || {
+    get: function(key, fallback) {
+      try {
+        var data = localStorage.getItem('fs_' + key);
+        return data !== null ? JSON.parse(data) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    },
+    set: function(key, value) {
+      try {
+        localStorage.setItem('fs_' + key, JSON.stringify(value));
+      } catch (e) {}
+    },
+    remove: function(key) {
+      try {
+        localStorage.removeItem('fs_' + key);
+      } catch (e) {}
+    }
+  };
+
+  var API_BASE = (typeof location !== 'undefined' && location.protocol === 'file:') ? 'http://localhost:3000' : '';
+
+  window.apiRequest = window.apiRequest || async function apiRequest(endpoint, method, data) {
+    var headers = { 'Content-Type': 'application/json' };
+    var token = (window.Storage && window.Storage.get) ? window.Storage.get('auth_token', null) : null;
+    if (!token && typeof localStorage !== 'undefined') {
+      try {
+        var rawToken = localStorage.getItem('fs_auth_token');
+        if (rawToken) {
+          try { token = JSON.parse(rawToken); } catch (e) { token = rawToken; }
+        }
+      } catch (e) {}
+    }
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    var cleanPath = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+    var baseUrl = (typeof location !== 'undefined' && location.origin && location.origin !== 'null' && location.protocol !== 'file:')
+      ? location.origin
+      : 'http://localhost:3000';
+    var url = cleanPath.startsWith('http') ? cleanPath : (baseUrl + cleanPath);
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
+
+    try {
+      var opts = {
+        method: method || 'GET',
+        headers: headers
+      };
+      if (controller) opts.signal = controller.signal;
+      if (data && ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || '').toUpperCase())) {
+        opts.body = typeof data === 'string' ? data : JSON.stringify(data);
+      }
+      var res = await fetch(url, opts);
+      if (timer) clearTimeout(timer);
+      var json = null;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        json = { error: 'Failed to parse JSON response' };
+      }
+      return { ok: res.ok, status: res.status, data: json };
+    } catch (err) {
+      if (timer) clearTimeout(timer);
+      return { ok: false, error: err.message };
+    }
+  };
+
   // Default configuration or saved overrides
   var savedUrl = '';
   var savedKey = '';
