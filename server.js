@@ -152,14 +152,20 @@ const server = http.createServer(async (req, res) => {
   }
 
   const ext = path.extname(filePath).toLowerCase();
-  const isAssetRequest = Boolean(ext && ext !== '.html');
+  const isApiRequest = cleanPath.startsWith('/api/');
+  const isAssetRequest = Boolean(ext && ext !== '.html') || isApiRequest;
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      // Do not return HTML fallback for css, js, images, or api assets
+      // Do not return HTML fallback for css, js, images, or api endpoints
       if (isAssetRequest) {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end(`Asset Not Found: ${cleanPath}`);
+        if (isApiRequest) {
+          res.writeHead(404, { 'Content-Type': 'application/json; charset=UTF-8' });
+          res.end(JSON.stringify({ success: false, error: `API route not found: ${cleanPath}` }));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end(`Asset Not Found: ${cleanPath}`);
+        }
         return;
       }
 

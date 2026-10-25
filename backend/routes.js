@@ -125,16 +125,22 @@ async function handleApiRequest(req, res) {
   // Parse body for write methods
   let body = {};
   let rawBodyText = '';
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+  if (req.body && typeof req.body === 'object') {
+    body = req.body;
+  } else if (typeof req.body === 'string' && req.body.trim()) {
+    try { body = JSON.parse(req.body); } catch (e) { body = {}; }
+  } else if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
     try {
       let raw = '';
-      await new Promise((resolve, reject) => {
-        req.on('data', chunk => { raw += chunk; });
-        req.on('end', resolve);
-        req.on('error', reject);
-      });
+      if (!req.readableEnded) {
+        await new Promise((resolve, reject) => {
+          req.on('data', chunk => { raw += chunk; });
+          req.on('end', resolve);
+          req.on('error', reject);
+        });
+      }
       rawBodyText = raw;
-      if (raw.trim()) {
+      if (raw && raw.trim()) {
         try { body = JSON.parse(raw); } catch (e) { body = { raw }; }
       }
     } catch (e) {
