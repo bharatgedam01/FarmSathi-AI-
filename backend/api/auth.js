@@ -44,11 +44,12 @@ module.exports = async (req, res) => {
   }
 
   const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname.replace(/\/$/, '');
+  const pathname = (parsedUrl.pathname || '').replace(/\/$/, '');
   const method = req.method.toUpperCase();
+  const action = (parsedUrl.query && parsedUrl.query.action) ? String(parsedUrl.query.action).toLowerCase() : '';
 
   // 1. SIGNUP
-  if (pathname.endsWith('/signup') && method === 'POST') {
+  if ((pathname.endsWith('/signup') || action === 'signup') && method === 'POST') {
     const body = await parseBody(req);
     const { fullName, email, password, phone } = body;
     if (!email || !password) {
@@ -73,7 +74,7 @@ module.exports = async (req, res) => {
   }
 
   // 2. LOGIN
-  if (pathname.endsWith('/login') && method === 'POST') {
+  if ((pathname.endsWith('/login') || action === 'login') && method === 'POST') {
     const body = await parseBody(req);
     const { email, password } = body;
     if (!email || !password) {
@@ -98,7 +99,7 @@ module.exports = async (req, res) => {
   }
 
   // 3. LOGOUT
-  if (pathname.endsWith('/logout') && method === 'POST') {
+  if ((pathname.endsWith('/logout') || action === 'logout') && method === 'POST') {
     const authHeader = req.headers['authorization'];
     if (authHeader) dbService.deleteSession(authHeader);
     sendJson(res, 200, { success: true, message: 'Logged out successfully' });
@@ -106,7 +107,7 @@ module.exports = async (req, res) => {
   }
 
   // 4. GET CURRENT USER (ME)
-  if (pathname.endsWith('/me') && method === 'GET') {
+  if ((pathname.endsWith('/me') || action === 'me' || pathname.endsWith('/auth')) && method === 'GET') {
     const authHeader = req.headers['authorization'];
     if (!authHeader) {
       sendJson(res, 200, {

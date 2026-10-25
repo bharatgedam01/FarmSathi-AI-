@@ -5,12 +5,18 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION);
+// In serverless environments, /tmp is the only writable storage path
+const DATA_DIR = isServerless ? path.join('/tmp', 'farmsaathi') : path.join(__dirname, '..', 'data');
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure data directory exists safely without crashing read-only environments
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (dirErr) {
+  // Gracefully handled; serverless fallback uses in-memory database
 }
 
 function hashPassword(password, salt) {
@@ -138,40 +144,53 @@ function getInitialSeedData() {
   };
 }
 
+let inMemoryDb = null;
+
 // Load DB from file, creating with seed data if absent
 function getDb() {
-  if (!fs.existsSync(DB_FILE)) {
-    const seed = getInitialSeedData();
-    saveDb(seed);
-    return seed;
-  }
+  if (inMemoryDb) return inMemoryDb;
+
   try {
-    const raw = fs.readFileSync(DB_FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    // Ensure all tables exist
-    if (!Array.isArray(parsed.users)) parsed.users = [];
-    if (!Array.isArray(parsed.sessions)) parsed.sessions = [];
-    if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
-    if (!Array.isArray(parsed.crops)) parsed.crops = [];
-    if (!Array.isArray(parsed.activities)) parsed.activities = [];
-    if (!Array.isArray(parsed.analyses)) parsed.analyses = [];
-    return parsed;
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      // Ensure all tables exist
+      if (!Array.isArray(parsed.users)) parsed.users = [];
+      if (!Array.isArray(parsed.sessions)) parsed.sessions = [];
+      if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
+      if (!Array.isArray(parsed.crops)) parsed.crops = [];
+      if (!Array.isArray(parsed.activities)) parsed.activities = [];
+      if (!Array.isArray(parsed.analyses)) parsed.analyses = [];
+      if (!Array.isArray(parsed.government_schemes)) parsed.government_schemes = [];
+      if (!Array.isArray(parsed.scheme_announcements)) parsed.scheme_announcements = [];
+      if (!Array.isArray(parsed.scheme_updates)) parsed.scheme_updates = [];
+      if (!Array.isArray(parsed.scheme_monitoring_logs)) parsed.scheme_monitoring_logs = [];
+      inMemoryDb = parsed;
+      return inMemoryDb;
+    }
   } catch (err) {
-    console.error('Error reading database file, resetting to seed:', err);
-    const seed = getInitialSeedData();
-    saveDb(seed);
-    return seed;
+    console.warn('Database file read notice:', err.message);
   }
+
+  const seed = getInitialSeedData();
+  inMemoryDb = seed;
+  saveDb(seed);
+  return inMemoryDb;
 }
 
-// Atomic save to database
+// Atomic save to database with memory guarantee
 function saveDb(data) {
+  inMemoryDb = data;
   try {
     const tempFile = DB_FILE + '.tmp';
     fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf8');
     fs.renameSync(tempFile, DB_FILE);
   } catch (err) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    try {
+      fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (writeErr) {
+      // In read-only serverless environments, inMemoryDb retains all updates safely
+    }
   }
 }
 

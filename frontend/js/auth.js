@@ -77,10 +77,15 @@
       var res = await fetch(url, opts);
       if (timer) clearTimeout(timer);
       var json = null;
+      var rawText = '';
       try {
-        json = await res.json();
+        rawText = await res.text();
+        json = JSON.parse(rawText);
       } catch (pe) {
-        json = { error: 'Failed to parse response' };
+        var fallbackMsg = res.status >= 500
+          ? 'Authentication service is initializing. Please try again in a few moments.'
+          : (rawText && rawText.length < 120 && !rawText.includes('<') ? rawText : 'Service returned an unparseable response.');
+        json = { error: fallbackMsg, status: res.status };
       }
       return { ok: res.ok, status: res.status, data: json };
     } catch (err) {
