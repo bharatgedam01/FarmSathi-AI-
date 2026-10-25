@@ -122,10 +122,9 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 3. Serve static files and clean page routes
-  let safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
+  let cleanPath = pathname.split('?')[0];
+  let safePath = path.normalize(cleanPath).replace(/^(\.\.[\/\\])+/, '');
   if (safePath === '/' || safePath === '\\') safePath = '/frontend/index.html';
-
-  let filePath = path.join(__dirname, safePath);
 
   // Check clean routes without .html extension in frontend/
   const cleanRouteMap = {
@@ -135,12 +134,16 @@ const server = http.createServer(async (req, res) => {
     '/reset-password': '/frontend/reset-password.html'
   };
 
-  if (pathname.startsWith('/uploads/')) {
+  let filePath = path.join(__dirname, safePath);
+
+  if (cleanPath.startsWith('/uploads/')) {
     filePath = path.join(__dirname, 'data', safePath);
-  } else if (cleanRouteMap[pathname]) {
-    filePath = path.join(__dirname, cleanRouteMap[pathname]);
+  } else if (cleanRouteMap[cleanPath]) {
+    filePath = path.join(__dirname, cleanRouteMap[cleanPath]);
   } else if (!fs.existsSync(filePath)) {
-    const frontendAttempt = path.join(__dirname, 'frontend', safePath);
+    // Check root css/js, then frontend/css/js
+    const strippedPath = safePath.replace(/^[\/\\]/, '');
+    const frontendAttempt = path.join(__dirname, 'frontend', strippedPath);
     if (fs.existsSync(frontendAttempt)) {
       filePath = frontendAttempt;
     } else if (fs.existsSync(`${frontendAttempt}.html`)) {
@@ -148,8 +151,18 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  const ext = path.extname(filePath).toLowerCase();
+  const isAssetRequest = Boolean(ext && ext !== '.html');
+
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
+      // Do not return HTML fallback for css, js, images, or api assets
+      if (isAssetRequest) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end(`Asset Not Found: ${cleanPath}`);
+        return;
+      }
+
       const fallbackIndexPath = fs.existsSync(path.join(__dirname, 'frontend', 'index.html'))
         ? path.join(__dirname, 'frontend', 'index.html')
         : path.join(__dirname, 'index.html');
@@ -171,7 +184,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
     fs.readFile(filePath, (readErr, content) => {

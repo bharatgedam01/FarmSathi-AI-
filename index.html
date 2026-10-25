@@ -2,14 +2,552 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="refresh" content="0; url=frontend/index.html">
-  <title>FarmSaathi AI — Redirecting…</title>
-  <script>
-    window.location.replace("frontend/index.html");
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#143e2c">
+  <title>FarmSaathi AI — Smart Farmer Assistance & Agricultural Intelligence Platform</title>
+  <meta name="description" content="AI-powered farming companion for Indian farmers. Instant crop disease diagnosis, live APMC mandi prices, hyper-local weather alerts, and 24/7 agricultural advisory in English, Hindi, and Marathi.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+
+  <!-- MODULAR STYLESHEETS -->
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/responsive.css">
+
+  <!-- SUPABASE JS CLIENT LIBRARY -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/supabase-client.js"></script>
 </head>
-<body style="font-family: sans-serif; background: #f4f7ef; color: #143e2c; padding: 40px; text-align: center;">
-  <h2>🌱 FarmSaathi AI</h2>
-  <p>Loading application… If you are not redirected automatically, <a href="frontend/index.html">click here to open FarmSaathi AI</a>.</p>
+<body class="landing-body">
+
+  <!-- STICKY HEADER -->
+  <header class="landing-header">
+    <a href="/" class="brand" style="text-decoration: none;">
+      <div class="brand-logo">🌱</div>
+      <div>
+        <div class="brand-title">FarmSaathi <span>AI</span></div>
+        <div class="brand-sub">Smart Farmer Platform</div>
+      </div>
+    </a>
+
+    <!-- Navigation Links -->
+    <nav class="landing-nav-links" id="mainNavLinks">
+      <a href="#features" class="landing-nav-link" id="navLinkFeatures">Features</a>
+      <a href="#ai-assistant" class="landing-nav-link" id="navLinkAi">AI Assistant</a>
+      <a href="#crop-health" class="landing-nav-link" id="navLinkVision">Crop Scanner</a>
+      <a href="#weather" class="landing-nav-link" id="navLinkWeather">Weather & Alerts</a>
+      <a href="#mandi" class="landing-nav-link" id="navLinkMandi">Mandi Rates</a>
+      <a href="#helplines" class="landing-nav-link" id="navLinkHelplines">Helplines</a>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="landing-actions">
+      <!-- Language Selector -->
+      <select class="input" id="landingLangSelector" onchange="switchLandingLanguage(this.value)" style="width: auto; padding: 7px 10px; font-size: 13px;" aria-label="Select interface language">
+        <option value="en">English (EN)</option>
+        <option value="hi">हिन्दी (HI)</option>
+        <option value="mr">मराठी (MR)</option>
+      </select>
+
+      <!-- Dynamic Auth Buttons -->
+      <a href="login.html" class="btn btn-secondary btn-sm" id="btnLandingLogin">Login</a>
+      <a href="register.html" class="btn btn-lime btn-sm" id="btnLandingGetStarted">Get Started Free</a>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="landing-hero">
+    <div class="landing-hero-content">
+      <div>
+        <div class="landing-pill" id="heroPillText">
+          <span>✦</span> INDIA'S SMARTEST AI AGRI COMPANION
+        </div>
+        <h1 id="heroHeadline">
+          Smarter Decisions.<br>
+          <span>Healthier Harvests.</span><br>
+          Higher Farm Income.
+        </h1>
+        <p class="landing-hero-desc" id="heroSubtitle">
+          FarmSaathi AI empowers Indian farmers with precision AI crop disease diagnosis, real-time APMC mandi rates, hyper-local weather alerts, and 24/7 voice & text farming guidance in your native language.
+        </p>
+
+        <div class="landing-hero-ctas">
+          <a href="register.html" class="btn btn-lime btn-lg" id="heroCtaRegister">
+            <span>🌱</span> <span id="txtGetStarted">Get Started Free</span>
+          </a>
+          <a href="login.html" class="btn btn-secondary btn-lg" id="heroCtaLogin">
+            <span>🔑</span> <span id="txtFarmerLogin">Farmer Login</span>
+          </a>
+        </div>
+
+        <div class="hero-badge-strip">
+          <div class="hero-strip-item">
+            <span style="color: var(--green); font-size: 16px;">✓</span> 100% Free for Farmers
+          </div>
+          <div class="hero-strip-item">
+            <span style="color: var(--green); font-size: 16px;">✓</span> EN · हिन्दी · मराठी
+          </div>
+          <div class="hero-strip-item">
+            <span style="color: var(--green); font-size: 16px;">✓</span> Verified APMC Mandi Data
+          </div>
+          <div class="hero-strip-item">
+            <span style="color: var(--green); font-size: 16px;">✓</span> Private & Secure
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Visual Preview Card -->
+      <div class="hero-card-preview">
+        <div class="preview-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="width: 10px; height: 10px; border-radius: 50%; background: #2e7d32;"></div>
+            <strong style="font-size: 13px; color: var(--deep);">Live Farm Dashboard Preview</strong>
+          </div>
+          <span class="badge badge-ok">🟢 Active Advisory</span>
+        </div>
+
+        <!-- Quick Preview Items -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: #f5f9f0; padding: 12px; border-radius: 12px; border: 1px solid #e1edd8;">
+            <div style="font-size: 11px; color: var(--muted); font-weight: 700;">LIVE WEATHER</div>
+            <div style="font-size: 22px; font-weight: 850; color: var(--deep); margin: 4px 0 2px;">28°C 🌤️</div>
+            <div style="font-size: 11px; color: var(--green); font-weight: 600;">Good Spraying Window</div>
+          </div>
+          <div style="background: #f5f9f0; padding: 12px; border-radius: 12px; border: 1px solid #e1edd8;">
+            <div style="font-size: 11px; color: var(--muted); font-weight: 700;">MANDI RATE (SOYBEAN)</div>
+            <div style="font-size: 22px; font-weight: 850; color: var(--green); margin: 4px 0 2px;">₹4,650 <small style="font-size: 12px; color: var(--muted);">/q</small></div>
+            <div style="font-size: 11px; color: var(--muted);">Nagpur APMC · Steady</div>
+          </div>
+        </div>
+
+        <!-- AI Assistant Mini Card -->
+        <div style="background: #ffffff; border: 1px solid var(--line); border-radius: 14px; padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+            <div style="width: 32px; height: 32px; border-radius: 10px; background: var(--lime-soft); display: grid; place-items: center; font-size: 16px;">🤖</div>
+            <div>
+              <div style="font-size: 12.5px; font-weight: 750; color: var(--deep);">FarmSaathi Agronomist AI</div>
+              <div style="font-size: 10.5px; color: var(--muted);">Multilingual Agronomic Engine</div>
+            </div>
+          </div>
+          <div style="background: #fafcf7; padding: 10px 12px; border-radius: 10px; font-size: 12px; color: #1e3828; line-height: 1.5; border-left: 3px solid var(--green);">
+            "Soybean crop is currently in flowering stage. Ensure soil moisture is maintained and apply micronutrient spray before pod formation."
+          </div>
+        </div>
+
+        <!-- Crop Health Mini Card -->
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #eaf5e9; border-radius: 12px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 22px;">📷</span>
+            <div>
+              <div style="font-size: 12px; font-weight: 800; color: var(--deep);">Crop Image Analysis</div>
+              <div style="font-size: 11px; color: var(--muted);">Instant leaf disease triage</div>
+            </div>
+          </div>
+          <span class="badge badge-ok" style="font-size: 11px;">Leaf Healthy 98%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES SHOWCASE -->
+  <section class="landing-section" id="features">
+    <div class="section-eyebrow" id="txtFeatEyebrow">COMPREHENSIVE CAPABILITIES</div>
+    <h2 class="section-title" id="txtFeatTitle">Engineered for Indian Farmers</h2>
+    <p class="section-sub" id="txtFeatSub">
+      Every tool in FarmSaathi AI is designed to solve real daily farming challenges — from sowing to harvesting and selling in the mandi.
+    </p>
+
+    <div class="features-grid">
+      <!-- 1. AI Assistance -->
+      <div class="feature-card" id="ai-assistant">
+        <div class="feature-icon-box">🤖</div>
+        <h3 id="feat1Title">AI Farming Assistance</h3>
+        <p id="feat1Desc">
+          Ask questions in English, Hindi, or Marathi about soil management, organic fertilizers, pest symptoms, NPK dosage ratios, and irrigation timings with instant agronomic answers.
+        </p>
+        <div class="feature-tags">
+          <span class="badge">Trilingual</span>
+          <span class="badge">Voice Input</span>
+          <span class="badge">Instant Guidance</span>
+        </div>
+      </div>
+
+      <!-- 2. Crop Image Analysis -->
+      <div class="feature-card" id="crop-health">
+        <div class="feature-icon-box">📷</div>
+        <h3 id="feat2Title">Crop Image Analysis</h3>
+        <p id="feat2Desc">
+          Snap or upload a photo of your infected leaf or crop. The AI vision model diagnoses leaf blight, rust, caterpillar infestation, and nutrient deficiencies with verified chemical & organic remedies.
+        </p>
+        <div class="feature-tags">
+          <span class="badge">Disease Diagnosis</span>
+          <span class="badge">Organic Remedies</span>
+          <span class="badge">Severity Triage</span>
+        </div>
+      </div>
+
+      <!-- 3. Weather Forecasts & Spray Alerts -->
+      <div class="feature-card" id="weather">
+        <div class="feature-icon-box">🌦️</div>
+        <h3 id="feat3Title">Weather & Spray Alerts</h3>
+        <p id="feat3Desc">
+          Hyper-local temperature, rain probability, humidity, and wind speed. Get smart automated advisories indicating whether today is safe for pesticide spraying or irrigation.
+        </p>
+        <div class="feature-tags">
+          <span class="badge">Hourly Forecasts</span>
+          <span class="badge">Rain Probabilities</span>
+          <span class="badge">Spray Safety Windows</span>
+        </div>
+      </div>
+
+      <!-- 4. Mandi Prices -->
+      <div class="feature-card" id="mandi">
+        <div class="feature-icon-box">📈</div>
+        <h3 id="feat4Title">Mandi Market Prices</h3>
+        <p id="feat4Desc">
+          Track daily APMC mandi rates across commodities like Cotton, Soybean, Wheat, Onion, Gram, and Tomato. Compare minimum, maximum, and modal prices to sell at maximum profit.
+        </p>
+        <div class="feature-tags">
+          <span class="badge">APMC Bulletins</span>
+          <span class="badge">Modal Rates</span>
+          <span class="badge">Trend Analysis</span>
+        </div>
+      </div>
+
+      <!-- 5. Farm & Crop Management -->
+      <div class="feature-card">
+        <div class="feature-icon-box">🌾</div>
+        <h3 id="feat5Title">Farms & Crops Management</h3>
+        <p id="feat5Desc">
+          Organize multiple farm plots, record crop varieties, track sowing dates, soil types, and monitor vegetative, flowering, and maturity growth stages in one centralized place.
+        </p>
+        <div class="feature-tags">
+          <span class="badge">Multi-Plot Support</span>
+          <span class="badge">Growth Stages</span>
+          <span class="badge">Crop Varieties</span>
+        </div>
+      </div>
+
+      <!-- 6. Farm Activities Tracking -->
+      <div class="feature-card">
+        <div class="feature-icon-box">🗓️</div>
+        <h3 id="feat6Title">Farm Activities & Reminders</h3>
+        <p id="feat6Desc">
+          Never miss critical farming tasks. Schedule irrigation cycles, fertilizer doses, weeding schedules, and harvest windows with reminders and one-click completion tracking.
+        </p>
+        <div class="feature-tags">
+          <span class="badge">Task Reminders</span>
+          <span class="badge">Date Scheduler</span>
+          <span class="badge">History Logs</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HELPLINES SHOWCASE -->
+  <section class="landing-section" id="helplines" style="padding-top: 0;">
+    <div class="helpline-banner">
+      <div>
+        <div class="badge" style="background: rgba(216, 243, 106, 0.2); color: var(--lime); margin-bottom: 12px;">EMERGENCY SUPPORT</div>
+        <h2 style="margin: 0 0 10px; font-size: clamp(24px, 3.2vw, 32px); letter-spacing: -0.6px;" id="helplineTitle">Direct Kisan Helplines</h2>
+        <p style="margin: 0 0 20px; font-size: 14px; color: #cfded2; line-height: 1.6;" id="helplineDesc">
+          Whenever you need official government agricultural guidance or urgent emergency crop support, reach verified helpline numbers directly.
+        </p>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <a href="tel:18001801551" class="btn btn-lime">
+            <span>📞</span> Call KCC (1800-180-1551)
+          </a>
+          <a href="login.html" class="btn btn-secondary" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); color: #ffffff;">
+            View All State Helplines →
+          </a>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <div class="helpline-box">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lime); font-weight: 800;">GOVERNMENT OF INDIA</div>
+          <div style="font-size: 16px; font-weight: 800; margin: 4px 0 2px;">Kisan Call Centre (Toll-Free)</div>
+          <div style="font-size: 13px; color: #cfded2;">1800-180-1551 (6:00 AM – 10:00 PM, 22 Languages)</div>
+        </div>
+        <div class="helpline-box">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--lime); font-weight: 800;">MAHARASHTRA AGRI</div>
+          <div style="font-size: 16px; font-weight: 800; margin: 4px 0 2px;">MahaAgri Kisan Sahayata</div>
+          <div style="font-size: 13px; color: #cfded2;">1800-233-4000 (State Department Support)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQS -->
+  <section class="landing-section">
+    <div class="section-eyebrow" id="faqEyebrow">FREQUENTLY ASKED QUESTIONS</div>
+    <h2 class="section-title" id="faqTitle">Common Questions from Farmers</h2>
+    <p class="section-sub" id="faqSub">Everything you need to know about starting with FarmSaathi AI.</p>
+
+    <div class="faq-grid">
+      <div class="faq-item">
+        <h4 id="faq1Q">Is FarmSaathi AI free to use?</h4>
+        <p id="faq1A">Yes, FarmSaathi AI is completely free for farmers. You can check weather forecasts, analyze crops, view mandi rates, and manage your farm plots at zero cost.</p>
+      </div>
+      <div class="faq-item">
+        <h4 id="faq2Q">Can I use FarmSaathi AI on my mobile phone?</h4>
+        <p id="faq2A">Absolutely. FarmSaathi AI is fully responsive and optimized for smartphones, tablets, and computers. It works smoothly even on mobile browsers with standard 3G/4G connectivity.</p>
+      </div>
+      <div class="faq-item">
+        <h4 id="faq3Q">Which languages are supported?</h4>
+        <p id="faq3A">FarmSaathi AI currently supports English, Hindi (हिन्दी), and Marathi (मराठी). You can switch languages at any time with one click.</p>
+      </div>
+      <div class="faq-item">
+        <h4 id="faq4Q">Is my farm data safe and private?</h4>
+        <p id="faq4A">Yes. Using Supabase Row Level Security (RLS), your farmer profile, crops, activities, and scan history are strictly private and accessible only when logged into your account.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM CALL TO ACTION BANNER -->
+  <div class="cta-banner">
+    <h2 id="bottomCtaTitle">Ready to Elevate Your Farm?</h2>
+    <p id="bottomCtaSub">
+      Join fellow farmers using modern AI to protect their harvests and get the best prices for their produce.
+    </p>
+    <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+      <a href="register.html" class="btn btn-primary btn-lg" id="btnBottomGetStarted">
+        <span>🌱</span> Get Started Free
+      </a>
+      <a href="login.html" class="btn btn-secondary btn-lg" id="btnBottomLogin">
+        <span>🔑</span> Log In to Your Farm
+      </a>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="landing-footer">
+    <div class="landing-footer-inner">
+      <div class="brand">
+        <div class="brand-logo" style="background: var(--lime); color: var(--deep);">🌱</div>
+        <div>
+          <div class="brand-title" style="color: #ffffff;">FarmSaathi <span style="color: var(--lime);">AI</span></div>
+          <div class="brand-sub" style="color: #92b79e;">Smart Farmer Platform</div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 20px; font-size: 13.5px;">
+        <a href="login.html" style="color: #c4d8ca; text-decoration: none;">Login</a>
+        <a href="register.html" style="color: #c4d8ca; text-decoration: none;">Register</a>
+        <a href="#features" style="color: #c4d8ca; text-decoration: none;">Features</a>
+        <a href="#helplines" style="color: #c4d8ca; text-decoration: none;">Helplines</a>
+      </div>
+    </div>
+    <div style="max-width: 1200px; margin: 18px auto 0; font-size: 12px; color: #87a491; text-align: center; line-height: 1.6;">
+      🌱 <b>Farmer Advisory:</b> FarmSaathi AI provides intelligent decision support. Always verify chemical treatments, pesticide dosages, and crop advisories with your local Krishi Vigyan Kendra (KVK) or agriculture department.
+    </div>
+  </footer>
+
+  <!-- SESSION CHECK & TRILINGUAL DICTIONARY SCRIPT -->
+  <script>
+    // 1. Check if user is already authenticated -> update header CTA to "Go to Dashboard →"
+    (async function checkExistingLandingSession() {
+      try {
+        var sb = window.SupabaseClient;
+        if (sb && typeof sb.initFromApi === 'function') {
+          await sb.initFromApi();
+        }
+
+        var session = null;
+        if (sb && sb.isConfigured()) {
+          session = await sb.getSession();
+        }
+
+        var localUser = null;
+        try {
+          localUser = JSON.parse(localStorage.getItem('fs_current_user') || 'null');
+        } catch (e) {}
+
+        if (session || localUser) {
+          var btnLogin = document.getElementById('btnLandingLogin');
+          var btnGetStarted = document.getElementById('btnLandingGetStarted');
+          var heroCtaRegister = document.getElementById('heroCtaRegister');
+
+          if (btnLogin) {
+            btnLogin.href = 'dashboard.html';
+            btnLogin.textContent = 'Go to Dashboard →';
+            btnLogin.className = 'btn btn-lime btn-sm';
+          }
+          if (btnGetStarted) {
+            btnGetStarted.style.display = 'none';
+          }
+          if (heroCtaRegister) {
+            heroCtaRegister.href = 'dashboard.html';
+            var txtEl = document.getElementById('txtGetStarted');
+            if (txtEl) txtEl.textContent = 'Open Farmer Dashboard →';
+          }
+        }
+      } catch (e) {
+        console.warn('Landing session notice:', e);
+      }
+    })();
+
+    // 2. Trilingual dictionary for Landing Page (EN, HI, MR)
+    var LANDING_TRANSLATIONS = {
+      en: {
+        navFeatures: 'Features',
+        navAi: 'AI Assistant',
+        navVision: 'Crop Scanner',
+        navWeather: 'Weather & Alerts',
+        navMandi: 'Mandi Rates',
+        navHelplines: 'Helplines',
+        pill: '✦ INDIA\'S SMARTEST AI AGRI COMPANION',
+        heroHead: 'Smarter Decisions.<br><span>Healthier Harvests.</span><br>Higher Farm Income.',
+        heroSub: 'FarmSaathi AI empowers Indian farmers with precision AI crop disease diagnosis, real-time APMC mandi rates, hyper-local weather alerts, and 24/7 voice & text farming guidance in your native language.',
+        getStarted: 'Get Started Free',
+        farmerLogin: 'Farmer Login',
+        featEyebrow: 'COMPREHENSIVE CAPABILITIES',
+        featTitle: 'Engineered for Indian Farmers',
+        featSub: 'Every tool in FarmSaathi AI is designed to solve real daily farming challenges — from sowing to harvesting and selling in the mandi.',
+        feat1Title: 'AI Farming Assistance',
+        feat1Desc: 'Ask questions in English, Hindi, or Marathi about soil management, organic fertilizers, pest symptoms, NPK dosage ratios, and irrigation timings with instant agronomic answers.',
+        feat2Title: 'Crop Image Analysis',
+        feat2Desc: 'Snap or upload a photo of your infected leaf or crop. The AI vision model diagnoses leaf blight, rust, caterpillar infestation, and nutrient deficiencies with verified chemical & organic remedies.',
+        feat3Title: 'Weather & Spray Alerts',
+        feat3Desc: 'Hyper-local temperature, rain probability, humidity, and wind speed. Get smart automated advisories indicating whether today is safe for pesticide spraying or irrigation.',
+        feat4Title: 'Mandi Market Prices',
+        feat4Desc: 'Track daily APMC mandi rates across commodities like Cotton, Soybean, Wheat, Onion, Gram, and Tomato. Compare minimum, maximum, and modal prices to sell at maximum profit.',
+        feat5Title: 'Farms & Crops Management',
+        feat5Desc: 'Organize multiple farm plots, record crop varieties, track sowing dates, soil types, and monitor vegetative, flowering, and maturity growth stages in one centralized place.',
+        feat6Title: 'Farm Activities & Reminders',
+        feat6Desc: 'Never miss critical farming tasks. Schedule irrigation cycles, fertilizer doses, weeding schedules, and harvest windows with reminders and one-click completion tracking.',
+        helplineTitle: 'Direct Kisan Helplines',
+        helplineDesc: 'Whenever you need official government agricultural guidance or urgent emergency crop support, reach verified helpline numbers directly.',
+        faqTitle: 'Common Questions from Farmers',
+        faqSub: 'Everything you need to know about starting with FarmSaathi AI.',
+        bottomCtaTitle: 'Ready to Elevate Your Farm?',
+        bottomCtaSub: 'Join fellow farmers using modern AI to protect their harvests and get the best prices for their produce.'
+      },
+      hi: {
+        navFeatures: 'सुविधाएं',
+        navAi: 'एआई सलाहकार',
+        navVision: 'फसल जांच',
+        navWeather: 'मौसम व अलर्ट',
+        navMandi: 'मंडी भाव',
+        navHelplines: 'हेल्पलाइन',
+        pill: '✦ भारत का सबसे सटीक एआई किसान साथी',
+        heroHead: 'सटीक निर्णय.<br><span>स्वस्थ फसल.</span><br>अधिकतम आमदनी.',
+        heroSub: 'फार्मसाथी एआई भारतीय किसानों को फसल रोग निदान, सटीक मंडी भाव, मौसम की जानकारी और 24/7 कृषि सलाह आपकी अपनी भाषा में उपलब्ध कराता है।',
+        getStarted: 'निःशुल्क शुरू करें',
+        farmerLogin: 'किसान लॉगिन',
+        featEyebrow: 'प्रमुख सुविधाएं',
+        featTitle: 'भारतीय किसानों के लिए निर्मित',
+        featSub: 'फार्मसाथी एआई का प्रत्येक फीचर बुवाई से लेकर फसल बिक्री तक किसान की वास्तविक समस्याओं को हल करता है।',
+        feat1Title: 'एआई कृषि सहायता',
+        feat1Desc: 'खाद की मात्रा, सिंचाई, कीट नियंत्रण और मिट्टी सुधार पर हिन्दी में सवाल पूछें और विशेषज्ञ सलाह प्राप्त करें।',
+        feat2Title: 'फसल रोग जांच',
+        feat2Desc: 'फसल या पत्ते का फोटो अपलोड करें। एआई तुरंत रोग पहचान कर जैविक व रासायनिक उपचार बताता है।',
+        feat3Title: 'मौसम व छिड़काव अलर्ट',
+        feat3Desc: 'तापमान, बारिश की संभावना और हवा की गति देखकर जानें कि आज दवा छिड़काव करना सुरक्षित है या नहीं।',
+        feat4Title: 'दैनिक मंडी भाव',
+        feat4Desc: 'सोयाबीन, कपास, गेहूं, चना, प्याज के दैनिक न्यूनतम, अधिकतम और मॉडल भाव देखें।',
+        feat5Title: 'खेत व फसल प्रबंधन',
+        feat5Desc: 'अपने सभी खेतों का रकबा, फसल की किस्म, बुवाई तिथि और विकास अवस्था दर्ज रखें।',
+        feat6Title: 'कृषि कार्य व रिमाइंडर',
+        feat6Desc: 'सिंचाई, खाद, निराई और कटाई के महत्वपूर्ण कार्यों का शेड्यूल बनाएं और रिमाइंडर पाएं।',
+        helplineTitle: 'किसान हेल्पलाइन नंबर',
+        helplineDesc: 'किसी भी सरकारी योजना या आपातकालीन सलाह के लिए सीधे अधिकृत किसान कॉल सेंटर से संपर्क करें।',
+        faqTitle: 'अक्सर पूछे जाने वाले सवाल',
+        faqSub: 'फार्मसाथी एआई के बारे में महत्वपूर्ण जानकारी।',
+        bottomCtaTitle: 'क्या आप अपनी खेती को स्मार्ट बनाने के लिए तैयार हैं?',
+        bottomCtaSub: 'आज ही फार्मसाथी एआई से जुड़ें और अपनी फसलों को सुरक्षित रखें।'
+      },
+      mr: {
+        navFeatures: 'वैशिष्ट्ये',
+        navAi: 'एआय सल्लागार',
+        navVision: 'पीक तपासणी',
+        navWeather: 'हवामान व अंदाज',
+        navMandi: 'बाजारभाव',
+        navHelplines: 'हेल्पलाइन',
+        pill: '✦ महाराष्ट्रातील शेतकऱ्यांचा विश्वासू एआय सखा',
+        heroHead: 'अचूक निर्णय.<br><span>निरोगी पीक.</span><br>भरघोस उत्पन्न.',
+        heroSub: 'फार्मसाथी एआय शेतकरी बांधवांना पीक रोग निदान, थेट बाजारभाव, स्थानिक हवामान अंदाज आणि चोवीस तास शेतीविषयक मार्गदर्शन मराठीत देते.',
+        getStarted: 'मोफत सुरू करा',
+        farmerLogin: 'शेतकरी लॉगिन',
+        featEyebrow: 'प्रमुख वैशिष्ट्ये',
+        featTitle: 'शेतकरी बांधवांसाठी आधुनिक तंत्रज्ञान',
+        featSub: 'पेरणीपासून ते बाजारपेठेत माल विकेपर्यंत शेतकऱ्यांच्या दैनंदिन गरजांसाठी तयार केलेले संपूर्ण समाधान.',
+        feat1Title: 'एआय शेती सल्लागार',
+        feat1Desc: 'खत व्यवस्थापन, कीड नियंत्रण आणि सिंचनाचे नियोजन याविषयी मराठीत थेट विचारा व मार्गदर्शन मिळवा.',
+        feat2Title: 'पीक आरोग्य तपासणी',
+        feat2Desc: 'झाडाच्या पानाचा फोटो काढून रोग, अळी किंवा अन्नद्रव्यांची कमतरता तपासा आणि योग्य उपाययोजना जाणून घ्या.',
+        feat3Title: 'हवामान व फवारणी अलर्ट',
+        feat3Desc: 'तापमान, पाऊस आणि वाऱ्याचा वेग तपासून आज औषध फवारणी करावी की नाही हे समजून घ्या.',
+        feat4Title: 'थेट कृषी उत्पन्न बाजारभाव',
+        feat4Desc: 'सोयाबीन, कापूस, तूर, कांदा आणि हरभरा यांचे थेट बाजारभाव पाहून चांगल्या भावात माल विका.',
+        feat5Title: 'शेती व पीक नोंदवही',
+        feat5Desc: 'आपल्या शेताचे क्षेत्र, पिकांची जात, पेरणी तारीख आणि पिकांची वाढ नोंदवून ठेवा.',
+        feat6Title: 'शेती कामांची नोंद व आठवण',
+        feat6Desc: 'पाणी देणे, खत देणे, खुरपणी आणि काढणीच्या कामांचे वेळापत्रक तयार करा.',
+        helplineTitle: 'शेतकरी हेल्पलाइन',
+        helplineDesc: 'शासकीय योजना व कृषी मार्गदर्शनासाठी थेट किसान कॉल सेंटरशी संपर्क साधा.',
+        faqTitle: 'नेहमी विचारले जाणारे प्रश्न',
+        faqSub: 'फार्मसाथी एआय बद्दल सर्व माहिती.',
+        bottomCtaTitle: 'आपली शेती आधुनिक करण्यासाठी सज्ज आहात?',
+        bottomCtaSub: 'आजच फार्मसाथी एआय वापरा आणि भरघोस उत्पादनाकडे पाऊल टाका.'
+      }
+    };
+
+    function switchLandingLanguage(lang) {
+      var dict = LANDING_TRANSLATIONS[lang] || LANDING_TRANSLATIONS.en;
+      try {
+        localStorage.setItem('fs_preferred_language', lang);
+      } catch (e) {}
+
+      var map = {
+        navLinkFeatures: dict.navFeatures,
+        navLinkAi: dict.navAi,
+        navLinkVision: dict.navVision,
+        navLinkWeather: dict.navWeather,
+        navLinkMandi: dict.navMandi,
+        navLinkHelplines: dict.navHelplines,
+        heroPillText: dict.pill,
+        heroSubtitle: dict.heroSub,
+        txtGetStarted: dict.getStarted,
+        txtFarmerLogin: dict.farmerLogin,
+        txtFeatEyebrow: dict.featEyebrow,
+        txtFeatTitle: dict.featTitle,
+        txtFeatSub: dict.featSub,
+        feat1Title: dict.feat1Title,
+        feat1Desc: dict.feat1Desc,
+        feat2Title: dict.feat2Title,
+        feat2Desc: dict.feat2Desc,
+        feat3Title: dict.feat3Title,
+        feat3Desc: dict.feat3Desc,
+        feat4Title: dict.feat4Title,
+        feat4Desc: dict.feat4Desc,
+        feat5Title: dict.feat5Title,
+        feat5Desc: dict.feat5Desc,
+        feat6Title: dict.feat6Title,
+        feat6Desc: dict.feat6Desc,
+        helplineTitle: dict.helplineTitle,
+        helplineDesc: dict.helplineDesc,
+        faqTitle: dict.faqTitle,
+        faqSub: dict.faqSub,
+        bottomCtaTitle: dict.bottomCtaTitle,
+        bottomCtaSub: dict.bottomCtaSub
+      };
+
+      for (var id in map) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = map[id];
+      }
+
+      var headEl = document.getElementById('heroHeadline');
+      if (headEl) headEl.innerHTML = dict.heroHead;
+    }
+
+    // Auto-load saved language if any
+    try {
+      var savedL = localStorage.getItem('fs_preferred_language');
+      if (savedL && (savedL === 'hi' || savedL === 'mr')) {
+        var sel = document.getElementById('landingLangSelector');
+        if (sel) sel.value = savedL;
+        switchLandingLanguage(savedL);
+      }
+    } catch (e) {}
+  </script>
 </body>
 </html>
