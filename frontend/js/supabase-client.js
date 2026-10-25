@@ -61,7 +61,8 @@
       : 'http://localhost:3000';
     var url = cleanPath.startsWith('http') ? cleanPath : (baseUrl + cleanPath);
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
+    var timeoutMs = (cleanPath.includes('/chat') || cleanPath.includes('/analyze')) ? 60000 : 15000;
+    var timer = controller ? setTimeout(function() { controller.abort(); }, timeoutMs) : null;
 
     try {
       var opts = {
@@ -462,6 +463,8 @@
             name: a.activity_name,
             category: a.category || 'General',
             date: a.activity_date,
+            farm: a.farm || (a.record_data && a.record_data.farm) || '',
+            crop: a.crop || (a.record_data && a.record_data.crop) || '',
             status: a.status || 'Pending',
             completed: a.status === 'Completed',
             notes: a.notes || ''
@@ -519,6 +522,34 @@
     return saved;
   }
 
+  async function updateActivity(userId, activityId, activityData) {
+    var sb = getClient();
+    if (!sb || !userId || !activityId) return null;
+
+    var updateRow = {
+      activity_name: activityData.name,
+      category: activityData.category,
+      activity_date: activityData.date,
+      status: activityData.completed ? 'Completed' : 'Pending',
+      notes: activityData.notes || ''
+    };
+
+    var updated = null;
+    try {
+      var res = await sb.from('farm_activities').update(updateRow).eq('id', activityId).eq('user_id', userId).select().single();
+      if (!res.error) updated = res.data;
+    } catch (e) {}
+
+    try {
+      await sb.from('farm_records').update({
+        title: activityData.name,
+        record_data: activityData
+      }).eq('id', activityId).eq('user_id', userId);
+    } catch (e) {}
+
+    return updated;
+  }
+
   async function toggleActivity(userId, activityId, isCompleted) {
     var sb = getClient();
     if (!sb || !userId || !activityId) return false;
@@ -553,6 +584,30 @@
   // ============================================================================
   // CROP ANALYSES & HEALTH HISTORY
   // ============================================================================
+  async function uploadCropPhoto(userId, fileOrBlob, fileName) {
+    var sb = getClient();
+    if (!sb || !userId || !fileOrBlob) return null;
+
+    try {
+      var bucketName = 'crop-photos';
+      var ext = (fileName && fileName.includes('.')) ? fileName.split('.').pop() : 'jpg';
+      var storagePath = `${userId}/${Date.now()}_scan.${ext}`;
+
+      var res = await sb.storage.from(bucketName).upload(storagePath, fileOrBlob, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+      if (!res.error && res.data) {
+        var urlData = sb.storage.from(bucketName).getPublicUrl(storagePath);
+        return (urlData && urlData.data && urlData.data.publicUrl) || null;
+      }
+    } catch (err) {
+      console.warn('Supabase storage photo upload failed, using server fallback:', err.message);
+    }
+    return null;
+  }
+
   async function fetchAnalyses(userId) {
     var sb = getClient();
     if (!sb || !userId) return null;
@@ -565,6 +620,7 @@
             id: h.id,
             crop: h.detected_crop || 'Crop Scan',
             file_name: h.original_file_name || 'leaf_photo.jpg',
+            imageUrl: h.image_path || null,
             report: h.report,
             created_at: h.created_at,
             isDemo: false
@@ -582,7 +638,9 @@
 
       if (!recRes.error && Array.isArray(recRes.data)) {
         return recRes.data.map(function(r) {
-          return Object.assign({ id: r.id }, r.record_data);
+          var item = Object.assign({ id: r.id }, r.record_data);
+          if (!item.imageUrl && item.image_path) item.imageUrl = item.image_path;
+          return item;
         });
       }
     } catch (e) {}
@@ -598,8 +656,9 @@
       user_id: userId,
       detected_crop: analysis.crop || 'Crop Scan',
       original_file_name: analysis.file_name || analysis.fileName || 'photo.jpg',
+      image_path: analysis.imageUrl || analysis.image_path || null,
       report: analysis.report,
-      model_name: 'gpt-4o-mini'
+      model_name: 'gemini-1.5-flash'
     };
 
     var saved = null;
@@ -673,8 +732,10 @@
     deleteCrop: deleteCrop,
     fetchActivities: fetchActivities,
     saveActivity: saveActivity,
+    updateActivity: updateActivity,
     toggleActivity: toggleActivity,
     deleteActivity: deleteActivity,
+    uploadCropPhoto: uploadCropPhoto,
     fetchAnalyses: fetchAnalyses,
     saveAnalysis: saveAnalysis,
     deleteAnalysis: deleteAnalysis,

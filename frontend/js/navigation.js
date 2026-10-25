@@ -14,6 +14,7 @@
     market: 'FARMER WORKSPACE / MANDI MARKET PRICES',
     activities: 'FARMER WORKSPACE / FARM REMINDERS & ACTIVITIES',
     history: 'FARMER WORKSPACE / CROP ANALYSIS HISTORY',
+    schemes: 'FARMER WORKSPACE / GOVT SCHEMES & SUBSIDIES',
     help: 'FARMER WORKSPACE / KISAN HELPLINES & SUPPORT',
     settings: 'FARMER WORKSPACE / SETTINGS & HEALTH'
   };
@@ -79,6 +80,8 @@
       window.fetchMandiPrices();
     } else if (pageId === 'settings' && typeof window.renderSettings === 'function') {
       window.renderSettings();
+    } else if (pageId === 'schemes' && window.GovSchemesModule && typeof window.GovSchemesModule.loadSchemesData === 'function') {
+      window.GovSchemesModule.loadSchemesData();
     } else if (pageId === 'weather' && typeof window.fetchWeather === 'function') {
       var searchInput = document.getElementById('weatherSearchLocation');
       if (searchInput && searchInput.value) {

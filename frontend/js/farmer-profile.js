@@ -10,48 +10,60 @@
 
   function getProfileKey() {
     var user = window.AuthModule && window.AuthModule.getCurrentUser();
-    return user ? 'profile_' + user.id : 'farmer_profile';
+    return (user && user.id) ? ('profile_' + user.id) : 'farmer_profile';
   }
 
   function getFarmerProfile() {
-    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getProfileKey(), {
-      full_name: 'Rahul Patil',
-      phone: '+91 9876543210',
-      village: 'Chamorshi',
-      district: 'Gadchiroli',
+    var user = window.AuthModule && window.AuthModule.getCurrentUser();
+    var defaultName = (user && (user.fullName || user.full_name)) || '';
+    if (defaultName === 'Rahul Patil') defaultName = '';
+
+    var stored = null;
+    if (window.AppStorage && window.AppStorage.get) {
+      stored = window.AppStorage.get(getProfileKey(), null);
+    }
+    if (!stored) {
+      try {
+        var raw = localStorage.getItem('fs_' + getProfileKey());
+        if (raw) stored = JSON.parse(raw);
+      } catch (e) {}
+    }
+
+    if (stored) {
+      // Sanitize legacy hardcoded name
+      if (stored.full_name === 'Rahul Patil' || stored.fullName === 'Rahul Patil') {
+        stored.full_name = defaultName;
+        if (stored.fullName) stored.fullName = defaultName;
+        saveFarmerProfileLocal(stored);
+      }
+      return stored;
+    }
+
+    return {
+      full_name: defaultName,
+      phone: (user && user.phone) || '',
+      village: '',
+      district: '',
       state: 'Maharashtra',
       preferred_language: 'en',
-      farm_area: '3.5',
+      farm_area: '',
       area_unit: 'acres',
-      soil_type: 'Black Cotton Soil',
-      irrigation_method: 'Drip Irrigation',
-      main_crop: 'Soybean & Cotton',
+      soil_type: '',
+      irrigation_method: '',
+      main_crop: '',
       season: 'Kharif',
-      latitude: 20.18,
-      longitude: 80.00
-    }) : {
-      full_name: 'Rahul Patil',
-      phone: '+91 9876543210',
-      village: 'Chamorshi',
-      district: 'Gadchiroli',
-      state: 'Maharashtra',
-      preferred_language: 'en',
-      farm_area: '3.5',
-      area_unit: 'acres',
-      soil_type: 'Black Cotton Soil',
-      irrigation_method: 'Drip Irrigation',
-      main_crop: 'Soybean & Cotton',
-      season: 'Kharif',
-      latitude: 20.18,
-      longitude: 80.00
+      latitude: null,
+      longitude: null
     };
   }
 
   function saveFarmerProfileLocal(p) {
     if (window.AppStorage) {
       window.AppStorage.set(getProfileKey(), p);
-      // Also keep generic backup for offline demo
-      window.AppStorage.set('farmer_profile', p);
+      var user = window.AuthModule && window.AuthModule.getCurrentUser();
+      if (!user || !user.id) {
+        window.AppStorage.set('farmer_profile', p);
+      }
     }
   }
 
@@ -82,8 +94,11 @@
     // Update greeting
     var greeting = $('pageGreeting');
     if (greeting) {
-      var name = profile.full_name || profile.fullName || 'Farmer';
-      greeting.textContent = 'Good day, ' + name + ' 👋';
+      var user = window.AuthModule && window.AuthModule.getCurrentUser();
+      var rawName = (user && (user.fullName || user.full_name)) || profile.full_name || profile.fullName || '';
+      if (rawName === 'Rahul Patil') rawName = (user && user.fullName) || '';
+      var name = rawName.trim();
+      greeting.textContent = 'Good day, ' + (name || 'Farmer') + ' 👋';
     }
   }
 

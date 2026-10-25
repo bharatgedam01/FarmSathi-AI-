@@ -4,3 +4,8 @@
 .vercel
 node_modules
 npm-debug.log*
+data/uploads/
+data/database.json
+test_*.js
+*.log
+.DS_Store

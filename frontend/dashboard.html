@@ -126,6 +126,9 @@
         <button type="button" class="nav-btn" data-page="market" onclick="navigateTo('market')">
           <span class="icon">📈</span><span class="nav-text" id="navMarketText">Mandi Prices</span>
         </button>
+        <button type="button" class="nav-btn" data-page="schemes" onclick="navigateTo('schemes')">
+          <span class="icon">🏛️</span><span class="nav-text" id="navSchemesText">Govt Schemes & Subsidies</span>
+        </button>
         <button type="button" class="nav-btn" data-page="activities" onclick="navigateTo('activities')">
           <span class="icon">🗓️</span><span class="nav-text" id="navActText">Farm Activities</span>
         </button>
@@ -248,6 +251,26 @@
             <button type="button" class="btn btn-secondary quick-chip" onclick="askQuickQuestion('What are the early symptoms of pink bollworm in cotton?')" style="justify-content: flex-start; text-align: left;">🐛 Cotton pest management</button>
             <button type="button" class="btn btn-secondary quick-chip" onclick="askQuickQuestion('How do I calculate drip irrigation timing based on soil type?')" style="justify-content: flex-start; text-align: left;">💧 Drip irrigation calculation</button>
           </div>
+        </div>
+      </div>
+
+      <!-- Quick Govt Schemes Overview Banner -->
+      <div class="panel" style="margin-top: 18px; border-left: 4px solid var(--primary); background: linear-gradient(to right, #fbfdf9, #ffffff);">
+        <div class="panel-head" style="margin-bottom: 8px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 2px;">
+              <span class="badge badge-success" style="font-size: 11px;">🟢 Automated Gov Watch Active</span>
+              <span class="badge" style="font-size: 11px; background: #e3f2fd; color: #0d47a1;">Central & Maharashtra Schemes</span>
+            </div>
+            <h3 style="margin: 0; font-size: 16.5px; color: #143e2c;">🏛️ Real-Time Government Subsidies & Announcements</h3>
+            <p style="font-size: 13px; color: var(--muted); margin: 2px 0 0;">Continuously verified with Ministry of Agriculture, PIB, and MahaDBT portals for new application windows and benefits.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="navigateTo('schemes')">Explore Verified Schemes →</button>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: #374151;">
+          <span style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 4px 10px; border-radius: 6px;">💰 <strong>PM-KISAN & Namo Shetkari:</strong> ₹12,000/yr for Maharashtra Farmers</span>
+          <span style="background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px;">🛡️ <strong>₹1 Crop Insurance:</strong> Full coverage under PMFBY</span>
+          <span style="background: #fefce8; border: 1px solid #fef08a; padding: 4px 10px; border-radius: 6px;">☀️ <strong>Magel Tyala Saur Pump:</strong> Up to 95% Solar Subsidy</span>
         </div>
       </div>
     </section>
@@ -725,8 +748,8 @@
           <span class="badge badge-ok" id="badgeMandiSource">Verified APMC Bulletins</span>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1.5fr 1.5fr auto; gap: 12px; margin-bottom: 16px;" class="grid-3">
-          <input class="input" id="mandiSearchQuery" onkeyup="if(event.key==='Enter')fetchMandiPrices()" placeholder="Search crop or city (e.g. Nagpur, Indore, Onion, Cotton, Wheat)">
+        <div style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr auto auto; gap: 10px; margin-bottom: 14px; align-items: center;" class="mandi-filter-grid">
+          <input class="input" id="mandiSearchQuery" onkeyup="if(event.key==='Enter')fetchMandiPrices()" placeholder="Search crop or mandi (e.g. Nagpur, Soybean, Wheat, Onion, Cotton)">
           <select class="input" id="mandiStateFilter" onchange="fetchMandiPrices()">
             <option value="">All States in India (सर्व राज्ये / सभी राज्य)</option>
             <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
@@ -752,7 +775,19 @@
             <option value="Jammu & Kashmir">Jammu & Kashmir (जम्मू और कश्मीर)</option>
             <option value="Delhi">Delhi (दिल्ली)</option>
           </select>
-          <button type="button" class="btn btn-primary" id="btnFilterMandi" onclick="fetchMandiPrices()">🔍 Filter Mandis</button>
+          <select class="input" id="mandiSortFilter" onchange="fetchMandiPrices()">
+            <option value="date_desc">📅 Sort by Date (Latest)</option>
+            <option value="price_desc">💰 Price: High to Low</option>
+            <option value="price_asc">💵 Price: Low to High</option>
+            <option value="crop_asc">🌾 Commodity: A to Z</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="btnFilterMandi" onclick="fetchMandiPrices()">🔍 Search</button>
+          <button type="button" class="btn btn-secondary" id="btnRefreshMandi" onclick="fetchMandiPrices(true)" title="Force refresh latest APMC observations">🔄 Refresh</button>
+        </div>
+
+        <div id="mandiMetaBanner" style="font-size: 12.5px; padding: 8px 12px; background: #fafcf8; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 14px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <span id="mandiSourceText">🏛️ Source: Agmarknet & Open Government Data Platform (data.gov.in)</span>
+          <span id="mandiLatestDateText">Latest Observation: <b>Verifying…</b></span>
         </div>
 
         <div class="table-wrap">
@@ -811,6 +846,14 @@
               <span id="lblActDate">Date *</span>
               <input class="input" id="actDate" type="date" required>
             </label>
+            <label class="field">
+              <span id="lblActFarm">Farm / Plot</span>
+              <input class="input" id="actFarm" placeholder="e.g. North Plot">
+            </label>
+            <label class="field">
+              <span id="lblActCrop">Crop</span>
+              <input class="input" id="actCrop" placeholder="e.g. Soybean, Cotton, Wheat">
+            </label>
             <label class="field full">
               <span id="lblActNotes">Notes</span>
               <textarea class="input" id="actNotes" rows="2" placeholder="e.g. Check soil moisture first; apply early morning."></textarea>
@@ -828,6 +871,23 @@
               <h3 id="actListTitle">Scheduled Reminders</h3>
               <p id="actListSub">Keep your farm operations on schedule.</p>
             </div>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+            <select class="input" id="filterActCategory" onchange="renderActivitiesList()" style="width: auto; padding: 6px 10px; font-size: 13px;">
+              <option value="">All Categories</option>
+              <option value="Irrigation">💧 Irrigation</option>
+              <option value="Fertilizer">🧪 Fertilizer</option>
+              <option value="Spraying">🍃 Spraying</option>
+              <option value="Weeding">🌾 Weeding</option>
+              <option value="Sowing">🌱 Sowing</option>
+              <option value="Harvesting">🚜 Harvesting</option>
+              <option value="General">📌 General</option>
+            </select>
+            <select class="input" id="filterActStatus" onchange="renderActivitiesList()" style="width: auto; padding: 6px 10px; font-size: 13px;">
+              <option value="">All Statuses</option>
+              <option value="Pending">⏳ Pending</option>
+              <option value="Completed">✓ Completed</option>
+            </select>
           </div>
           <div id="activityListContainer" class="item-list"></div>
         </div>
@@ -848,6 +908,104 @@
         </div>
 
         <div id="historyListContainer" class="item-list"></div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 9B. GOVERNMENT SCHEMES & SUBSIDIES DISCOVERY -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-schemes">
+      <div class="panel">
+        <div class="panel-head" style="flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="badge badge-success" id="govSourcesCountBadge">7 Official Portals Active</span>
+              <span class="badge" style="background: #f1f5f9; color: #475569;" id="govLastSyncTimeText">Checking sources…</span>
+            </div>
+            <h2 id="schemesTitle" style="margin: 0; font-size: 22px;">🏛️ Government Schemes, Subsidies & Announcements</h2>
+            <p id="schemesSub" style="margin: 4px 0 0; font-size: 13.5px; color: var(--muted);">Real-time automated discovery from PIB Agriculture, PM-KISAN, PMFBY, MahaDBT, and Maharashtra Krishi Vibhag.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnTriggerSchemeSync" onclick="triggerManualSchemesCheck()">🔄 Check for Updates</button>
+          </div>
+        </div>
+
+        <!-- Metric Counter Strip -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11.5px; text-transform: uppercase; color: var(--muted); font-weight: 700;">Verified Schemes</div>
+            <div style="font-size: 22px; font-weight: 850; color: #143e2c;" id="statTotalSchemesCount">8</div>
+            <div style="font-size: 11px; color: #15803d;">Central & Maharashtra Govts</div>
+          </div>
+          <div style="background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11.5px; text-transform: uppercase; color: var(--muted); font-weight: 700;">Active Application Windows</div>
+            <div style="font-size: 22px; font-weight: 850; color: #1f6b45;" id="statOpenWindowsCount">6</div>
+            <div style="font-size: 11px; color: #15803d;">MahaDBT & Direct Portals</div>
+          </div>
+          <div style="background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11.5px; text-transform: uppercase; color: var(--muted); font-weight: 700;">Official Portals Monitored</div>
+            <div style="font-size: 22px; font-weight: 850; color: #0f766e;">7 Portals</div>
+            <div style="font-size: 11px; color: #0f766e;">PIB, PM-Kisan, MahaDBT, PMFBY</div>
+          </div>
+          <div style="background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px;">
+            <div style="font-size: 11.5px; text-transform: uppercase; color: var(--muted); font-weight: 700;">Verification Audit Status</div>
+            <div style="font-size: 22px; font-weight: 850; color: #166534;">100% Verified</div>
+            <div style="font-size: 11px; color: #166534;">Official Source Timestamped</div>
+          </div>
+        </div>
+
+        <!-- Recent Official Circulars & PIB Announcements Stream (Collapsible/Preview) -->
+        <details style="margin-bottom: 20px; background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px;" open>
+          <summary style="font-weight: 700; font-size: 13.5px; cursor: pointer; color: #143e2c;">
+            📢 Latest Official Government Press Releases & Circulars (PIB Feed)
+          </summary>
+          <div id="govAnnouncementsList" style="margin-top: 10px;">
+            <div style="padding: 10px; color: var(--muted); font-size: 13px;">Loading live PIB circulars…</div>
+          </div>
+        </details>
+
+        <!-- Search & Filter Bar -->
+        <div style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div style="flex: 2; min-width: 240px;">
+              <input class="input" id="schemeSearchInput" placeholder="🔍 Search schemes by name, benefits, crop (e.g. Drip, Tractor, PM-KISAN, ₹1 विमा)…" oninput="onSchemeSearch(this.value)">
+            </div>
+            <div style="flex: 1; min-width: 160px;">
+              <select class="input" id="schemeStateSelect" onchange="setSchemeState(this.value)">
+                <option value="All">All States (Central & MH)</option>
+                <option value="Maharashtra">Maharashtra Schemes Only</option>
+                <option value="All India">Central Govt (All India)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <!-- Category Chips -->
+            <div style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;">
+              <button type="button" class="scheme-cat-chip active" data-cat="All" onclick="setSchemeCategory('All')">All Categories</button>
+              <button type="button" class="scheme-cat-chip" data-cat="Direct Benefit" onclick="setSchemeCategory('Direct Benefit')">💰 Direct Benefit</button>
+              <button type="button" class="scheme-cat-chip" data-cat="Subsidies & Machinery" onclick="setSchemeCategory('Subsidies & Machinery')">🚜 Subsidies & Machinery</button>
+              <button type="button" class="scheme-cat-chip" data-cat="Insurance" onclick="setSchemeCategory('Insurance')">🛡️ Crop Insurance</button>
+              <button type="button" class="scheme-cat-chip" data-cat="Solar & Irrigation" onclick="setSchemeCategory('Solar & Irrigation')">☀️ Solar & Irrigation</button>
+              <button type="button" class="scheme-cat-chip" data-cat="Credit & Loans" onclick="setSchemeCategory('Credit & Loans')">💳 Credit & KCC</button>
+            </div>
+
+            <!-- Farmer Profile Relevance Toggle -->
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 650; color: #143e2c;">
+              <input type="checkbox" id="chkOnlyRecommended" onchange="toggleRecommendedSchemes()" style="accent-color: var(--primary); width: 16px; height: 16px;">
+              <span>🎯 Show Schemes Recommended for My Farm</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Schemes Grid Loading Skeleton -->
+        <div id="schemesLoading" style="display: none; padding: 40px; text-align: center; color: var(--muted);">
+          <div class="auth-guard-spinner" style="margin: 0 auto 12px;"></div>
+          <div>Loading verified government schemes…</div>
+        </div>
+
+        <!-- Schemes Grid -->
+        <div class="schemes-grid" id="schemesCardGrid"></div>
       </div>
     </section>
 
@@ -930,7 +1088,6 @@
         <div id="integrationListContainer" class="item-list"></div>
 
         <div style="margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-secondary" id="btnExportData" onclick="exportFarmData()">📥 Export Farm Data (JSON)</button>
           <button type="button" class="btn btn-danger" id="btnLogoutSession" onclick="handleLogout()">🚪 Log Out / Clear Local Data</button>
         </div>
       </div>
@@ -948,9 +1105,119 @@
       <h3 style="margin: 0;" id="modalReportTitle">🌾 Crop Health Triage Report</h3>
       <button type="button" class="btn btn-secondary btn-sm" id="btnCloseReportModal" onclick="closeReportModal()" style="border: 0; font-size: 18px;">✕</button>
     </div>
-    <div class="report-card" id="modalReportContent" style="max-height: 60vh; overflow-y: auto;"></div>
+    <div id="modalReportImageContainer" style="display: none; margin-bottom: 14px; text-align: center; background: #fafcf8; padding: 10px; border-radius: 8px; border: 1px solid var(--line);">
+      <img id="modalReportImage" src="" alt="Scanned Leaf Photo" style="max-height: 240px; max-width: 100%; border-radius: 6px; object-fit: contain; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    </div>
+    <div class="report-card" id="modalReportContent" style="max-height: 50vh; overflow-y: auto; white-space: pre-wrap; font-family: inherit; font-size: 13.5px; line-height: 1.6;"></div>
     <div style="margin-top: 16px; text-align: right;">
       <button type="button" class="btn btn-primary" id="btnCloseReportBtn" onclick="closeReportModal()">Close Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- EDIT ACTIVITY MODAL -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="activityEditModal">
+  <div class="modal-card" style="width: min(550px, 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3 style="margin: 0;" id="modalEditActTitle">✏️ Edit Farm Activity</h3>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeEditActivityModal()" style="border: 0; font-size: 18px;">✕</button>
+    </div>
+    <form id="formEditActivity" class="fields-grid" onsubmit="handleEditActivitySubmit(event)">
+      <input type="hidden" id="editActId">
+      <input type="hidden" id="editActIndex">
+      <label class="field full">
+        <span>Activity Description *</span>
+        <input class="input" id="editActName" required>
+      </label>
+      <label class="field">
+        <span>Category</span>
+        <select class="input" id="editActCategory">
+          <option value="Irrigation">Irrigation (सिंचन)</option>
+          <option value="Fertilizer">Fertilizer (खते)</option>
+          <option value="Spraying">Spraying (फवारणी)</option>
+          <option value="Weeding">Weeding (खुरपणी / तण नियंत्रण)</option>
+          <option value="Sowing">Sowing (पेरणी)</option>
+          <option value="Harvesting">Harvesting (कापणी)</option>
+          <option value="General">General (इतर)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Date *</span>
+        <input class="input" id="editActDate" type="date" required>
+      </label>
+      <label class="field">
+        <span>Farm / Plot</span>
+        <input class="input" id="editActFarm" placeholder="e.g. North Plot">
+      </label>
+      <label class="field">
+        <span>Crop</span>
+        <input class="input" id="editActCrop" placeholder="e.g. Soybean, Cotton, Wheat">
+      </label>
+      <label class="field full">
+        <span>Notes</span>
+        <textarea class="input" id="editActNotes" rows="2"></textarea>
+      </label>
+      <div class="field full" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="closeEditActivityModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="btnSaveEditedAct">💾 Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- GOVERNMENT SCHEME DETAIL MODAL -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="schemeDetailModal">
+  <div class="modal-card" style="width: min(720px, 100%); max-height: 85vh; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px;">
+      <div>
+        <h3 style="margin: 0 0 4px; font-size: 18px; color: #143e2c;" id="modalSchemeTitle">Scheme Title</h3>
+        <div style="font-size: 12px; color: var(--muted);" id="modalSchemeAuthority">Authority & Jurisdiction</div>
+      </div>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeSchemeDetailModal()" style="border: 0; font-size: 18px; padding: 2px 8px;">✕</button>
+    </div>
+
+    <!-- Confirmed Subsidy Banner -->
+    <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 14px;">
+      <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #15803d; margin-bottom: 2px;">💰 Confirmed Benefits & Subsidies:</div>
+      <div style="font-size: 14.5px; font-weight: 750; color: #143e2c;" id="modalSchemeBenefits">Benefit Details</div>
+    </div>
+
+    <!-- Eligibility & Limits -->
+    <div style="margin-bottom: 14px;">
+      <h4 style="margin: 0 0 6px; font-size: 13.5px; color: var(--text);">📋 Eligibility Criteria & Land Limits</h4>
+      <div style="font-size: 13px; color: #374151; line-height: 1.5; background: #fafcf8; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line);" id="modalSchemeEligibility">Eligibility details</div>
+    </div>
+
+    <!-- Required Documents -->
+    <div style="margin-bottom: 14px;">
+      <h4 style="margin: 0 0 6px; font-size: 13.5px; color: var(--text);">📑 Mandatory Documents Required</h4>
+      <div style="font-size: 13px; color: #374151; line-height: 1.5; background: #fafcf8; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line);" id="modalSchemeDocs">Required documents</div>
+    </div>
+
+    <!-- Application Instructions -->
+    <div style="margin-bottom: 14px;">
+      <h4 style="margin: 0 0 6px; font-size: 13.5px; color: var(--text);">📝 Step-by-Step Application Process</h4>
+      <div style="font-size: 13px; color: #374151; line-height: 1.5; background: #fafcf8; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line); white-space: pre-wrap;" id="modalSchemeInstructions">Step-by-step instructions</div>
+    </div>
+
+    <!-- Deadline & Verification Stamp -->
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+      <div>⏱️ <strong>Application Deadline:</strong> <span id="modalSchemeDeadline">Ongoing</span></div>
+      <div>🛡️ <strong>Official Source Check:</strong> <span id="modalSchemeVerifiedDate">Verified</span></div>
+    </div>
+
+    <!-- Audit History (if changed) -->
+    <div id="modalSchemeAuditHistory" style="display: none; margin-bottom: 14px;"></div>
+
+    <!-- Actions -->
+    <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); padding-top: 12px;">
+      <button type="button" class="btn btn-secondary" onclick="closeSchemeDetailModal()">Close</button>
+      <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" id="modalBtnOfficialNotice">📄 Official Circular ↗</a>
+      <a href="#" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="modalBtnApplyPortal">🌐 Apply on Official Website ↗</a>
     </div>
   </div>
 </div>
@@ -973,6 +1240,7 @@
   <script src="js/weather.js"></script>
   <script src="js/mandi-prices.js"></script>
   <script src="js/crop-analysis.js"></script>
+  <script src="js/schemes.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

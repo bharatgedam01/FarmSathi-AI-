@@ -6,6 +6,12 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const dns = require('dns');
+
+// Prioritize IPv4 DNS resolution to prevent IPv6 socket connect timeouts
+if (dns && typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 // Load environment variables from .env if present
 function loadEnv() {
@@ -19,7 +25,7 @@ function loadEnv() {
         if (idx !== -1) {
           const key = trimmed.slice(0, idx).trim();
           const val = trimmed.slice(idx + 1).trim().replace(/(^['"]|['"]$)/g, '');
-          if (!process.env[key]) {
+          if (val) {
             process.env[key] = val;
           }
         }
@@ -129,7 +135,9 @@ const server = http.createServer(async (req, res) => {
     '/reset-password': '/frontend/reset-password.html'
   };
 
-  if (cleanRouteMap[pathname]) {
+  if (pathname.startsWith('/uploads/')) {
+    filePath = path.join(__dirname, 'data', safePath);
+  } else if (cleanRouteMap[pathname]) {
     filePath = path.join(__dirname, cleanRouteMap[pathname]);
   } else if (!fs.existsSync(filePath)) {
     const frontendAttempt = path.join(__dirname, 'frontend', safePath);
@@ -196,6 +204,19 @@ server.listen(PORT, () => {
   console.log(`  Mandi API:        http://localhost:${PORT}/api/mandi`);
   console.log(`  Chat API:         http://localhost:${PORT}/api/chat`);
   console.log(`  Analyze API:      http://localhost:${PORT}/api/analyze`);
+  console.log(`  Gov Schemes API:  http://localhost:${PORT}/api/schemes`);
+  console.log(`  Gov Cron API:     http://localhost:${PORT}/api/cron/schemes`);
   console.log(`  Database File:    ./data/database.json`);
   console.log(`======================================================\n`);
+
+  // Automated Background Government Schemes Discovery (24-hour cycle)
+  const schemeService = require('./backend/services/schemeService');
+  setTimeout(() => {
+    schemeService.checkForUpdates().catch(e => console.warn('Initial Gov Schemes check notice:', e.message));
+  }, 2500);
+
+  setInterval(() => {
+    schemeService.checkForUpdates().catch(e => console.warn('Scheduled Gov Schemes check notice:', e.message));
+  }, 24 * 60 * 60 * 1000);
 });
+

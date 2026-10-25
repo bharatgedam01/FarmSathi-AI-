@@ -231,3 +231,92 @@ CREATE TRIGGER on_auth_user_created
 --    Allow authenticated users access to folder matching their user id:
 --    (storage.foldername(name))[1] = auth.uid()::text
 -- ==============================================================================
+
+-- ==============================================================================
+-- 13. AUTOMATED GOVERNMENT SCHEMES & UPDATES SYSTEM
+-- ==============================================================================
+
+-- 13.1 Official Government Schemes Table
+CREATE TABLE IF NOT EXISTS public.government_schemes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  name_mr TEXT,
+  name_hi TEXT,
+  category TEXT NOT NULL CHECK (category IN ('Direct Benefit', 'Insurance', 'Subsidies & Machinery', 'Solar & Irrigation', 'Credit & Loans', 'General')),
+  authority TEXT NOT NULL, -- e.g. 'Central Government' or 'Maharashtra State Government'
+  state TEXT NOT NULL DEFAULT 'All India',
+  announcement_title TEXT,
+  description TEXT NOT NULL,
+  benefits TEXT NOT NULL,
+  eligibility TEXT NOT NULL,
+  required_documents TEXT NOT NULL,
+  application_instructions TEXT NOT NULL,
+  official_portal_url TEXT NOT NULL,
+  official_source_url TEXT NOT NULL,
+  application_deadline TEXT,
+  verification_status TEXT NOT NULL DEFAULT 'Officially Confirmed & Active' 
+    CHECK (verification_status IN ('Newly Announced', 'Officially Confirmed & Active', 'Information Updated', 'Application Open', 'Application Closed', 'Historical or Discontinued', 'Awaiting Official Verification')),
+  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 13.2 Real-Time Official Announcements & PIB Circulars
+CREATE TABLE IF NOT EXISTS public.scheme_announcements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT,
+  link TEXT NOT NULL,
+  published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  verification_status TEXT NOT NULL DEFAULT 'Verified Official Source',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_announcement_link UNIQUE (link)
+);
+
+-- 13.3 Scheme Change Audit Log (Tracks deadline revisions, subsidy adjustments, eligibility updates)
+CREATE TABLE IF NOT EXISTS public.scheme_updates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  scheme_id TEXT NOT NULL REFERENCES public.government_schemes(id) ON DELETE CASCADE,
+  field_changed TEXT NOT NULL,
+  old_value TEXT,
+  new_value TEXT NOT NULL,
+  official_source TEXT NOT NULL,
+  detected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 13.4 Automated Monitoring Job Logs
+CREATE TABLE IF NOT EXISTS public.scheme_monitoring_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  sources_checked INT NOT NULL DEFAULT 0,
+  sources_healthy INT NOT NULL DEFAULT 0,
+  announcements_count INT NOT NULL DEFAULT 0,
+  updates_detected INT NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'completed',
+  details JSONB DEFAULT '{}'::jsonb
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_gov_schemes_category ON public.government_schemes(category);
+CREATE INDEX IF NOT EXISTS idx_gov_schemes_state ON public.government_schemes(state);
+CREATE INDEX IF NOT EXISTS idx_gov_schemes_status ON public.government_schemes(verification_status);
+CREATE INDEX IF NOT EXISTS idx_scheme_announcements_pub ON public.scheme_announcements(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scheme_updates_scheme_id ON public.scheme_updates(scheme_id);
+CREATE INDEX IF NOT EXISTS idx_scheme_monitoring_logs_date ON public.scheme_monitoring_logs(checked_at DESC);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.government_schemes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scheme_announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scheme_updates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.scheme_monitoring_logs ENABLE ROW LEVEL SECURITY;
+
+-- Public read access: Anyone and authenticated farmers can view verified government schemes
+CREATE POLICY "Public read verified government schemes" ON public.government_schemes FOR SELECT USING (true);
+CREATE POLICY "Public read official announcements" ON public.scheme_announcements FOR SELECT USING (true);
+CREATE POLICY "Public read scheme audit logs" ON public.scheme_updates FOR SELECT USING (true);
+CREATE POLICY "Public read monitoring logs" ON public.scheme_monitoring_logs FOR SELECT USING (true);
+
+-- Restrict write/insert/update/delete to service role (backend worker / cron / admin)
+-- Supabase automatically bypasses RLS for service_role keys. No unauthenticated user can modify official schemes.
+

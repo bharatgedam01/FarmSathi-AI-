@@ -2,7 +2,7 @@
 // Zero external bundle dependencies. Integrates all modules, trilingual dictionary,
 // local storage migration, chat assistant, and multi-tier synchronization.
 
-(function(window) {
+(function (window) {
   'use strict';
 
   // Helper
@@ -15,7 +15,7 @@
   // Never overwrites native window.Storage.
   // ============================================================================
   var AppStorage = window.AppStorage || {
-    get: function(key, fallback) {
+    get: function (key, fallback) {
       try {
         if (typeof localStorage === 'undefined') return fallback;
         var data = localStorage.getItem('fs_' + key);
@@ -29,17 +29,17 @@
         return fallback;
       }
     },
-    set: function(key, value) {
+    set: function (key, value) {
       try {
         if (typeof localStorage === 'undefined') return;
         localStorage.setItem('fs_' + key, JSON.stringify(value));
-      } catch (e) {}
+      } catch (e) { }
     },
-    remove: function(key) {
+    remove: function (key) {
       try {
         if (typeof localStorage === 'undefined') return;
         localStorage.removeItem('fs_' + key);
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -191,34 +191,48 @@
 
   async function apiRequest(endpoint, method, data) {
     var headers = { 'Content-Type': 'application/json' };
-    var token = AppStorage.get('auth_token', null);
+    var token = null;
+    try {
+      token = (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get('auth_token', null) : null;
+      if (!token) {
+        var rawToken = localStorage.getItem('fs_auth_token');
+        if (rawToken) {
+          try { token = JSON.parse(rawToken); } catch (e) { token = rawToken; }
+        }
+      }
+    } catch (e) {}
     if (token) headers['Authorization'] = 'Bearer ' + token;
 
     var cleanPath = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
-    var url = API_BASE + cleanPath;
-    var controller = new AbortController();
-    var timer = setTimeout(function() { controller.abort(); }, 5000);
+    var baseUrl = (typeof location !== 'undefined' && location.origin && location.origin !== 'null' && location.protocol !== 'file:')
+      ? location.origin
+      : 'http://localhost:3000';
+    var url = cleanPath.startsWith('http') ? cleanPath : (baseUrl + cleanPath);
+
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timeoutMs = (cleanPath.includes('/chat') || cleanPath.includes('/analyze')) ? 60000 : 15000;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, timeoutMs) : null;
 
     try {
       var opts = {
         method: method || 'GET',
-        headers: headers,
-        signal: controller.signal
+        headers: headers
       };
+      if (controller) opts.signal = controller.signal;
       if (data && ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || '').toUpperCase())) {
-        opts.body = JSON.stringify(data);
+        opts.body = typeof data === 'string' ? data : JSON.stringify(data);
       }
       var res = await fetch(url, opts);
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       var json = await res.json();
       return { ok: res.ok, status: res.status, data: json };
     } catch (err) {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
       return { ok: false, error: err.message };
     }
   }
 
-  window.apiRequest = window.apiRequest || apiRequest;
+  window.apiRequest = apiRequest;
   window.isBackendConnected = isBackendConnected;
 
   // ============================================================================
@@ -353,8 +367,32 @@
       statusEl.textContent = 'FarmSaathi AI is preparing agronomic advice…';
     }
 
+    var sendBtn = $('btnChatSend');
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Thinking…';
+    }
+
+    // Append temporary typing indicator bubble
+    var container = $('chatMessages');
+    var typingBubble = document.createElement('div');
+    typingBubble.className = 'chat-bubble assistant';
+    typingBubble.id = 'chatTypingIndicator';
+    typingBubble.innerHTML = '🌱 <i>FarmSaathi AI is analyzing your question and preparing agronomic advice…</i>';
+    if (container) {
+      container.appendChild(typingBubble);
+      container.scrollTop = container.scrollHeight;
+    }
+
     var lang = getLang();
     var profile = (window.FarmerProfile && window.FarmerProfile.getProfile) ? window.FarmerProfile.getProfile() : {};
+    var currentUser = (window.AuthModule && window.AuthModule.getCurrentUser) ? window.AuthModule.getCurrentUser() : null;
+
+    var actualName = (currentUser && (currentUser.fullName || currentUser.full_name)) || (profile && (profile.full_name || profile.fullName)) || '';
+    if (actualName === 'Rahul Patil') {
+      actualName = (currentUser && (currentUser.fullName || currentUser.full_name)) || '';
+    }
+    profile.full_name = actualName.trim();
 
     try {
       var res = await apiRequest('/api/chat', 'POST', {
@@ -364,7 +402,15 @@
         history: chatConversationHistory
       });
 
-      if (res.ok && res.data && res.data.answer) {
+      if (typingBubble && typingBubble.parentNode) {
+        typingBubble.parentNode.removeChild(typingBubble);
+      }
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send ➤';
+      }
+
+      if (res && res.data && res.data.answer) {
         appendChatBubble(res.data.answer, 'assistant');
         chatConversationHistory.push({ role: 'assistant', content: res.data.answer });
         if (statusEl) {
@@ -373,12 +419,34 @@
         }
         return;
       }
+
+      if (res && res.data && res.data.error) {
+        appendChatBubble('⚠️ **AI Service Error:** ' + res.data.error, 'assistant');
+        return;
+      }
+
+      if (res && res.error) {
+        appendChatBubble('⚠️ **Network / Timeout Notice:** ' + res.error + '\n\nPlease verify your server is running and try asking again.', 'assistant');
+        return;
+      }
     } catch (err) {
-      console.warn('Backend chat API error, falling back to autonomous agronomy engine:', err.message);
+      console.warn('Backend chat API communication error:', err.message);
+      if (typingBubble && typingBubble.parentNode) {
+        typingBubble.parentNode.removeChild(typingBubble);
+      }
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send ➤';
+      }
     }
 
-    // Autonomous rule fallback
-    var fallbackAnswer = getAutonomousAgronomicAdvice(question, lang, profile);
+    // Fallback notice
+    var fallbackAnswer =
+      '⚠️ **FarmSaathi AI Service Notice**\n\n' +
+      'Unable to connect to the AI model backend. Please ensure the local server is running (`node server.js`).\n\n' +
+      '**Configuration Check:**\n' +
+      '• Ensure `GEMINI_API_KEY` is provided in your `.env` file.\n' +
+      '• To consult an agricultural expert immediately, call the national Kisan Call Center at **1800-180-1551** (Toll-Free, 6 AM to 10 PM).';
     appendChatBubble(fallbackAnswer, 'assistant');
     chatConversationHistory.push({ role: 'assistant', content: fallbackAnswer });
 
@@ -388,13 +456,36 @@
     }
   }
 
+  function updateChatGreeting() {
+    var welcomeEl = $('chatWelcomeMessage');
+    if (!welcomeEl) return;
+    var currentUser = (window.AuthModule && window.AuthModule.getCurrentUser) ? window.AuthModule.getCurrentUser() : null;
+    var profile = (window.FarmerProfile && window.FarmerProfile.getProfile) ? window.FarmerProfile.getProfile() : {};
+    var rawName = (currentUser && (currentUser.fullName || currentUser.full_name)) || (profile && (profile.full_name || profile.fullName)) || '';
+    if (rawName === 'Rahul Patil') rawName = (currentUser && currentUser.fullName) || '';
+    var name = rawName.trim();
+
+    var greeting = name ? ('Namaste ' + name + '! 🙏') : 'Namaste! 🙏';
+    welcomeEl.innerHTML =
+      greeting + ' I am FarmSaathi AI, your farming assistant.<br>' +
+      'You can ask me questions about crop cultivation, irrigation scheduling, fertilizer doses, disease symptoms, or weather precautions in English, Hindi, or Marathi.<br><br>' +
+      '💡 <b>Tip:</b> If asking about an issue, please mention your crop, stage, and visible symptoms for the best guidance.';
+  }
+
   function resetChat() {
     chatConversationHistory = [];
     var container = $('chatMessages');
     if (container) {
+      var currentUser = (window.AuthModule && window.AuthModule.getCurrentUser) ? window.AuthModule.getCurrentUser() : null;
+      var profile = (window.FarmerProfile && window.FarmerProfile.getProfile) ? window.FarmerProfile.getProfile() : {};
+      var rawName = (currentUser && (currentUser.fullName || currentUser.full_name)) || (profile && (profile.full_name || profile.fullName)) || '';
+      if (rawName === 'Rahul Patil') rawName = (currentUser && currentUser.fullName) || '';
+      var name = rawName.trim();
+      var greeting = name ? ('Namaste ' + name + '! 🙏') : 'Namaste! 🙏';
+
       container.innerHTML =
         '<div class="chat-bubble assistant">' +
-        'Namaste! 🙏 I am FarmSaathi AI, your agricultural assistant.<br><br>' +
+        greeting + ' I am FarmSaathi AI, your agricultural assistant.<br><br>' +
         'You can ask me questions about crop cultivation, irrigation scheduling, fertilizer doses, disease symptoms, or weather precautions in English, Hindi, or Marathi.' +
         '</div>';
     }
@@ -402,6 +493,7 @@
 
   window.handleChatSubmit = handleChatSubmit;
   window.resetChat = resetChat;
+  window.updateChatGreeting = updateChatGreeting;
 
   // ============================================================================
   // AUTONOMOUS AGRONOMIC RULE ENGINES (Client Fallback)
@@ -500,7 +592,7 @@
     ];
 
     var html = '';
-    items.forEach(function(it) {
+    items.forEach(function (it) {
       html +=
         '<div class="list-row">' +
         '  <div class="list-row-main">' +
@@ -531,7 +623,7 @@
     container.innerHTML = html;
   }
 
-  window.saveSupabaseSettings = function() {
+  window.saveSupabaseSettings = function () {
     var url = ($('cfgSupabaseUrl') && $('cfgSupabaseUrl').value.trim()) || '';
     var key = ($('cfgSupabaseAnonKey') && $('cfgSupabaseAnonKey').value.trim()) || '';
 
@@ -546,7 +638,7 @@
     }
   };
 
-  window.clearSupabaseSettings = function() {
+  window.clearSupabaseSettings = function () {
     if (window.SupabaseClient) {
       window.SupabaseClient.setConfig('', '');
       renderSettings();
@@ -557,30 +649,7 @@
     }
   };
 
-  function exportFarmData() {
-    var exportPayload = {
-      exported_at: new Date().toISOString(),
-      platform: 'FarmSaathi AI Full-Stack Platform',
-      user: window.AuthModule && window.AuthModule.getCurrentUser(),
-      profile: (window.FarmerProfile && window.FarmerProfile.getProfile) ? window.FarmerProfile.getProfile() : {},
-      crops: (window.FarmsCrops && window.FarmsCrops.getSavedCrops) ? window.FarmsCrops.getSavedCrops() : [],
-      activities: (window.FarmActivities && window.FarmActivities.getSavedActivities) ? window.FarmActivities.getSavedActivities() : [],
-      scan_history: (window.CropAnalysis && window.CropAnalysis.getSavedHistory) ? window.CropAnalysis.getSavedHistory() : []
-    };
-
-    var blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'farmsaathi-farm-data-' + new Date().toISOString().slice(0, 10) + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   window.renderSettings = renderSettings;
-  window.exportFarmData = exportFarmData;
 
   // ============================================================================
   // APP INITIALIZATION
@@ -604,6 +673,8 @@
       window.AuthModule.updateAuthUI();
     }
 
+    updateChatGreeting();
+
     if (window.FarmerProfile && window.FarmerProfile.loadProfileForm) {
       window.FarmerProfile.loadProfileForm();
     }
@@ -624,14 +695,38 @@
       window.DashboardModule.updateDashboardCounts();
     }
 
-    // Set badges
-    if ($('aiStatusBadge')) {
-      $('aiStatusBadge').textContent = '🌱 Active (Trilingual AI)';
-      $('aiStatusBadge').className = 'badge badge-ok';
+    if (window.GovSchemesModule && window.GovSchemesModule.loadSchemesData) {
+      window.GovSchemesModule.loadSchemesData();
     }
-    if ($('visionModeBadge')) {
-      $('visionModeBadge').textContent = '🌱 Triage Ready ✓';
-      $('visionModeBadge').className = 'badge badge-ok';
+
+    // Dynamic AI Status Badges
+    try {
+      var statusRes = await apiRequest('/api/status', 'GET');
+      if (statusRes && statusRes.data) {
+        if ($('aiStatusBadge')) {
+          if (statusRes.data.aiConfigured) {
+            $('aiStatusBadge').textContent = '⚡ ' + (statusRes.data.aiProvider || 'AI') + ' Active';
+            $('aiStatusBadge').className = 'badge badge-ok';
+          } else {
+            $('aiStatusBadge').textContent = '⚠️ API Key Needed';
+            $('aiStatusBadge').className = 'badge badge-warn';
+          }
+        }
+        if ($('visionModeBadge')) {
+          if (statusRes.data.visionConfigured) {
+            $('visionModeBadge').textContent = '🔬 ' + (statusRes.data.aiProvider || 'Vision') + ' Ready';
+            $('visionModeBadge').className = 'badge badge-ok';
+          } else {
+            $('visionModeBadge').textContent = '⚠️ Vision Key Needed';
+            $('visionModeBadge').className = 'badge badge-warn';
+          }
+        }
+      }
+    } catch (statusErr) {
+      if ($('aiStatusBadge')) {
+        $('aiStatusBadge').textContent = '⚠️ Service Offline';
+        $('aiStatusBadge').className = 'badge badge-warn';
+      }
     }
 
     // Preload Mandi prices

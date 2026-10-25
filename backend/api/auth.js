@@ -112,12 +112,34 @@ module.exports = async (req, res) => {
       sendJson(res, 200, {
         success: true,
         authenticated: false,
-        user: { id: 'user_demo', fullName: 'Rahul Patil', email: 'farmer@farmsaathi.in' },
-        profile: dbService.getProfile('user_demo')
+        user: null,
+        profile: null
       });
       return;
     }
-    const verified = dbService.getUserByToken(authHeader);
+
+    let verified = dbService.getUserByToken(authHeader);
+    if (!verified) {
+      const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+      const parts = cleanToken.split('.');
+      if (parts.length === 3) {
+        try {
+          const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+          const json = Buffer.from(payloadBase64, 'base64').toString('utf8');
+          const payload = JSON.parse(json);
+          if (payload && (payload.sub || payload.id)) {
+            const meta = payload.user_metadata || {};
+            verified = {
+              id: payload.sub || payload.id,
+              fullName: meta.full_name || '',
+              email: payload.email || '',
+              isSupabase: true
+            };
+          }
+        } catch (e) {}
+      }
+    }
+
     if (!verified) {
       sendJson(res, 401, { success: false, error: 'Session expired or invalid' });
       return;

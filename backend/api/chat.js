@@ -58,26 +58,33 @@ module.exports = async (req, res) => {
     const result = await aiService.askChat(message, language, profile, history);
 
     const payload = {
-      success: true,
+      success: !result.missingConfig,
+      missingConfig: Boolean(result.missingConfig),
       answer: result.answer,
-      mode: result.mode
+      error: result.error || null,
+      mode: result.mode,
+      model: result.model || null
     };
 
+    const statusCode = result.missingConfig ? 200 : 200;
     if (res.writeHead) {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=UTF-8', 'Cache-Control': 'no-store' });
+      res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=UTF-8', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify(payload));
     } else {
-      res.status(200).json(payload);
+      res.status(statusCode).json(payload);
     }
   } catch (err) {
     console.error('Chat API Error:', err);
-    const fallbackAnswer = aiService.getAutonomousAgronomicAdvice('', 'en', {});
-    const payload = { success: true, answer: fallbackAnswer, mode: 'fallback-error' };
+    const payload = {
+      success: false,
+      error: err.message || 'Internal AI Error. Please verify your GEMINI_API_KEY or OPENAI_API_KEY.',
+      answer: `⚠️ **AI Service Error:** ${err.message || 'Unable to connect to AI model. Please verify your API key and connection.'}`
+    };
     if (res.writeHead) {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=UTF-8' });
+      res.writeHead(500, { 'Content-Type': 'application/json; charset=UTF-8' });
       res.end(JSON.stringify(payload));
     } else {
-      res.status(200).json(payload);
+      res.status(500).json(payload);
     }
   }
 };

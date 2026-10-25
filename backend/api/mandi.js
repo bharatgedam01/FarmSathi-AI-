@@ -19,8 +19,10 @@ module.exports = async (req, res) => {
 
   const state = query.state || '';
   const search = query.q || query.search || query.crop || '';
+  const sort = query.sort || '';
+  const forceRefresh = query.refresh === 'true' || query.refresh === '1';
 
-  const result = mandiService.queryMandiPrices({ state, query: search });
+  const result = await mandiService.queryMandiPrices({ state, query: search, sort, forceRefresh });
 
   if (res.writeHead) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=UTF-8', 'Cache-Control': 'public, max-age=300' });

@@ -13,9 +13,12 @@ module.exports = async (req, res) => {
     return;
   }
 
+  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
   const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '');
-  const chatModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-  const visionModel = process.env.OPENAI_VISION_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const hasAiKey = hasGeminiKey || hasOpenAiKey;
+  const activeProvider = hasGeminiKey ? 'Google Gemini' : (hasOpenAiKey ? 'OpenAI' : 'None');
+  const chatModel = hasGeminiKey ? (process.env.GEMINI_MODEL || 'gemini-1.5-flash') : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+  const visionModel = hasGeminiKey ? (process.env.GEMINI_MODEL || 'gemini-1.5-flash') : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
 
   let stats = {};
   try {
@@ -31,10 +34,11 @@ module.exports = async (req, res) => {
     version: '2.0.0',
     timestamp: new Date().toISOString(),
     uptimeSeconds: Math.floor(process.uptime()),
-    aiConfigured: hasOpenAiKey,
-    chatModel: hasOpenAiKey ? chatModel : 'Autonomous Agronomic Engine',
-    visionConfigured: hasOpenAiKey,
-    visionModel: hasOpenAiKey ? visionModel : 'Autonomous Triage Engine',
+    aiConfigured: hasAiKey,
+    aiProvider: activeProvider,
+    chatModel: hasAiKey ? chatModel : 'Unconfigured (Awaiting API Key)',
+    visionConfigured: hasAiKey,
+    visionModel: hasAiKey ? visionModel : 'Unconfigured (Awaiting API Key)',
     weatherService: 'Open-Meteo REST API (Live Synced)',
     mandiService: process.env.DATA_GOV_IN_API_KEY ? 'Data.gov.in Live Mandi API' : 'Verified APMC Mandi Bulletins',
     cloudDatabase: 'Supabase (Configured client-side via project URL & anon key)',

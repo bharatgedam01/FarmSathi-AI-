@@ -1,348 +1,448 @@
-// FarmSaathi AI — Agricultural AI Service
-// Multilingual agronomic guidance (English, Hindi, Marathi) with OpenAI integration
-// and autonomous fallback engine.
+// FarmSaathi AI — Genuine Agricultural AI & Vision Service
+// Connects to Google Gemini (gemini-1.5-flash / gemini-2.0-flash) or OpenAI (gpt-4o-mini / gpt-4o).
+// Strictly generates question-specific answers and genuine image-based pixel analysis.
+// If no AI key is configured, provides clear configuration instructions without faking responses.
 
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
 
-// Autonomous Agronomic Advice Engine
-function getAutonomousAgronomicAdvice(question, language, profile) {
-  const q = String(question || '').toLowerCase();
-  const lang = language || 'en';
-  const crop = (profile && (profile.main_crop || profile.mainCrop)) || 'Crop';
-  const soil = (profile && profile.soil_type) || 'soil';
-
-  if (lang === 'hi' || /[\u0900-\u097F]/.test(question)) {
-    if (q.includes('कीट') || q.includes('कीड़ा') || q.includes('pest') || q.includes('जैविक') || q.includes('नियंत्रण') || q.includes('उपाय')) {
-      return `🌱 **फसल में सुरक्षित जैविक एवं एकात्मिक कीट नियंत्रण (IPM) उपाय:**
-
-1. **नीम तेल का छिड़काव:** 
-   - रसचूसक कीटों (माहू, सफेद मक्खी, हरा तेला) के लिए 1500 PPM नीम का तेल 5 मिली प्रति लीटर पानी में थोड़ा सा साबुन का घोल मिलाकर छिड़काव करें।
-2. **जैविक फफूंदनाशक (बायो-पेस्टीसाइड):**
-   - इल्लियों और सुंडी के नियंत्रण के लिए *बिवेरिया बैसियाना (Beauveria bassiana)* या *वर्टिसिलियम लेकानी* 5 ग्राम प्रति लीटर पानी में मिलाकर शाम के समय छिड़कें।
-3. **ट्रैप एवं जाल:**
-   - प्रति एकड़ 4–5 **फेरोमोन ट्रैप (Pheromone Traps)** लगाएं।
-   - उड़ने वाले कीटों के लिए 8–10 **पीले और नीले चिपचिपे कार्ड (Sticky Traps)** लगाएं।
-4. **दशपर्णी अर्क / नीमास्त्र:**
-   - 10 विभिन्न कड़वे पत्तों से बना दशपर्णी अर्क 200 मिली प्रति 15 लीटर पंप में मिलाकर छिड़कने से कीटों का प्रकोप तुरंत रुकता है।
-5. **सुरक्षा एवं सलाह:**
-   - हमेशा हवा की दिशा में छिड़काव करें और मास्क पहनें। गंभीर प्रकोप की स्थिति में अपने नजदीकी **कृषि विज्ञान केंद्र (KVK)** या किसान कॉल सेंटर (1800-180-1551) से परामर्श लें।`;
-    }
-    if (q.includes('खाद') || q.includes('उर्वरक') || q.includes('fertilizer') || q.includes('खत') || q.includes('यूरिया')) {
-      return `🌾 **फसल के लिए संतुलित पोषण एवं उर्वरक प्रबंधन:**
-
-1. **बुवाई के समय (आधार खाद):**
-   - नाइट्रोजन, फास्फोरस और पोटाश का संतुलित अनुपात (NPK) दें।
-   - एक एकड़ में 50 किग्रा DAP + 25 किग्रा पोटाश + 10 किग्रा जिंक सल्फेट दें।
-2. **वानस्पतिक वृद्धि की अवस्था (25–30 दिन):**
-   - यूरिया का पहला टॉप-ड्रेसिंग करें (30–35 किग्रा प्रति एकड़)।
-   - यूरिया के साथ नीम-लेपित यूरिया का प्रयोग करें ताकि रिसाव कम हो।
-3. **फूल एवं फलियां बनते समय:**
-   - 0:52:34 (मोनो पोटैशियम फास्फेट) 75 ग्राम प्रति 15 लीटर पानी का छिड़काव करें जिससे दाना भराव मजबूत हो।
-4. **सेंद्रिय / जैविक खाद:**
-   - प्रति एकड़ 1–2 ट्रॉली अच्छी सड़ी हुई गोबर खाद या 5 क्विंटल वर्मीकम्पोस्ट (केंचुआ खाद) बुवाई पूर्व खेत में मिलाएं।`;
-    }
-    if (q.includes('सिंचाई') || q.includes('पानी') || q.includes('irrigation') || q.includes('drip')) {
-      return `💧 **वैज्ञानिक सिंचाई एवं जल प्रबंधन:**
-
-1. **नाज़ुक अवस्थाएँ (Critical Stages):**
-   - अंकुरण, फूल आने के समय और दाना/फल बनने के समय खेत में नमी की कमी न होने दें।
-2. **ड्रिप / टपक सिंचाई (Drip Irrigation):**
-   - काली भारी मिट्टी में पानी धीरे-धीरे दें ताकि जलभराव न हो।
-   - प्रति पौधा 2–3 घंटे सुबह के समय ड्रिप चलाना सबसे उपयुक्त रहता है।
-3. **मल्चिंग (Mulching):**
-   - खरपतवार नियंत्रण और नमी बचाने के लिए फसलों में जैविक मल्च (पुआल) या प्लास्टिक मल्च का उपयोग करें।`;
-    }
-    return `🌾 **कृषि सलाह (${crop} एवं सामान्य फसल प्रबंधन):**
-
-- **खेत की तैयारी:** मिट्टी परीक्षण के आधार पर ही पोषक तत्वों का प्रयोग करें।
-- **रोग रोकथाम:** बीज बोने से पहले *ट्राइकोडर्मा विरिडी* (5 ग्राम प्रति किग्रा बीज) से बीजोपचार अवश्य करें।
-- **निगरानी:** हफ्ते में दो बार खेत का भ्रमण कर पत्तियों के नीचे कीटों या धब्बों की जांच करें।
-- **मौसम की सावधानी:** भारी बारिश या तेज हवा के दौरान कोई भी छिड़काव न करें।
-- 💡 **सहायता:** किसी भी आपातकालीन स्थिति में अपने नजदीकी कृषि अधिकारी या **किसान कॉल सेंटर (1800-180-1551)** से संपर्क करें।`;
-  }
-
-  if (lang === 'mr') {
-    if (q.includes('कीड') || q.includes('किडी') || q.includes('नियंत्रण') || q.includes('जैविक') || q.includes('सेंद्रिय') || q.includes('उपाय')) {
-      return `🌱 **पिकांवरील सुरक्षित सेंद्रिय व एकात्मिक कीड नियंत्रण (IPM) उपाय:**
-
-1. **निंबोळी अर्क / नीम तेल:**
-   - मावा, तुडतुडे, पांढरी माशी या रसशोषक किडींसाठी ५ मिली नीम तेल (१५०० PPM) प्रति लिटर पाण्यात मिसळून फवारावे.
-2. **जैविक बुरशीनाशक व कीटकनाशक:**
-   - अळी नियंत्रणासाठी *बिव्हेरिया बॅसियाना (Beauveria bassiana)* ५ ग्रॅम प्रति लिटर पाण्यात मिसळून संध्याकाळी फवारावे.
-3. **सापळे (Traps):**
-   - बोंडअळीच्या सर्वेक्षणासाठी एकरी ५ **कामगंध सापळे (Pheromone Traps)** लावावेत.
-   - पांढरी माशी व थ्रिप्ससाठी एकरी १०–१२ **पिवळे व निळे चिकट सापळे** लावावेत.
-4. **दशपर्णी अर्क / जीवामृत:**
-   - पिकांची प्रतिकारशक्ती वाढवण्यासाठी २०० मिली दशपर्णी अर्क प्रति १५ लिटर पंपात घेऊन फवारणी करावी.
-5. **सुरक्षा सूचना:**
-   - रासायनिक कीटकनाशकांची विषबाधा टाळण्यासाठी फवारणी करताना तोंडाला मास्क व हातमोजे वापरा. अधिक माहितीसाठी जवळच्या **कृषी विज्ञान केंद्राशी (KVK)** संपर्क साधा.`;
-    }
-    if (q.includes('खत') || q.includes('युरिया') || q.includes('सेंद्रिय खत') || q.includes('dap') || q.includes('पोषण')) {
-      return `🌾 **संतुलित अन्नद्रव्य व खत व्यवस्थापन (${crop}):**
-
-1. **पायाभूत खते (बुडात खत):**
-   - पेरणीच्या वेळी १ बॅग DAP + १ बॅग पोटॅश + १० किलो फेरस/झिंक सल्फेट प्रति एकर द्यावे.
-2. **पिकाच्या वाढीची अवस्था (३० दिवस):**
-   - युरियाचा पहिला हप्ता (३०–३५ किलो एकरी) द्यावा. युरिया नेहमी ओल असतानाच टाकावा.
-3. **फुलोरा व शेंगा/दाणे भरण्याची अवस्था:**
-   - ०:५२:३४ किंवा १३:०:४५ विद्राव्य खत १०० ग्रॅम प्रति १५ लिटर पंपात घेऊन फवारणी करावी.
-4. **सेंद्रिय खत:**
-   - जमिनीत जिवाणूंचे प्रमाण वाढवण्यासाठी एकरी २ ट्रॉली चांगले कुजलेले शेणखत किंवा गांडूळ खत वापरावे.`;
-    }
-    if (q.includes('पाणी') || q.includes('सिंचन') || q.includes('ठिबक') || q.includes('irrigation')) {
-      return `💧 **शास्त्रीय पाणी व ठिबक सिंचन नियोजन:**
-
-1. **महत्त्वाचे टप्पे:**
-   - फुलोरा आणि दाणे भरण्याच्या काळात पिकाला पाण्याचा ताण पडू देऊ नका.
-2. **ठिबक सिंचन वापर:**
-   - काळ्या कसदार जमिनीत रोज पाणी देण्याऐवजी १ दिवस आड २–३ तास पाणी द्यावे, जेणेकरून मुळांना हवा खेळती राहील.
-3. **पाण्याचा निचरा:**
-   - अतिवृष्टी झाल्यास शेतात पाणी साचू न देता ते चर काढून बाहेर काढावे.`;
-    }
-    return `🌾 **शेती सल्ला (${crop} व जमीन आरोग्य):**
-
-- **माती परीक्षण:** जमिनीच्या पोतानुसार खतांचे योग्य प्रमाण ठरवा.
-- **बीजप्रक्रिया:** पेरणीपूर्वी *ट्रायकोडर्मा व्हिरीडी* (५ ग्रॅम प्रति किलो बियाणे) प्रक्रिया अवश्य करा.
-- **कीड व रोग सर्वेक्षण:** आठवड्यातून दोनदा शेताची पाहणी करा.
-- 💡 **मदत:** अधिक मार्गदर्शनासाठी जवळचे **कृषी विज्ञान केंद्र (KVK)** किंवा **किसान कॉल सेंटर (१८००-१८०-१५५१)** शी संपर्क साधा.`;
-  }
-
-  // English default
-  return `🌾 **Agricultural Expert Guidance for ${crop}:**
-
-1. **Integrated Pest Management (IPM):**
-   - **Bio-repellents:** Use Neem Oil (1500 ppm at 5ml/liter of water) with a mild surfactant for sucking pests (aphids, jassids, whiteflies).
-   - **Biological Agents:** Spray *Beauveria bassiana* or *Bt (Bacillus thuringiensis)* at 5g/liter during evening hours for caterpillar and borer control.
-   - **Monitoring:** Install 4-5 pheromone traps per acre and 10 yellow/blue sticky traps.
-2. **Balanced Nutrient Management:**
-   - Base fertilizer: Apply balanced NPK according to local soil tests.
-   - Foliar sprays: Apply 0:52:34 (75g/15L pump) during flowering to improve pod/grain setting.
-   - Organic matter: Apply 5 tons of well-rotted FYM (cow dung manure) or vermicompost per hectare.
-3. **Water Management:**
-   - Avoid moisture stress during critical growth stages (crown root initiation, flowering, and grain filling).
-   - In clay/black cotton soils, avoid waterlogging by maintaining proper field drainage.
-4. **Safety & Helplines:**
-   - Always wear protective equipment during chemical handling.
-   - Verify specific chemical brand dosages with your local **Krishi Vigyan Kendra (KVK)** or call the national **Kisan Call Centre (1800-180-1551)**.`;
+if (dns && typeof dns.setDefaultResultOrder === 'function') {
+  dns.setDefaultResultOrder('ipv4first');
 }
 
-// Autonomous Crop Health Triage Engine
-function getAutonomousCropTriage(cropName, language, fileName) {
-  const crop = cropName || 'General Crop / Field Sample';
-  const lang = language || 'en';
-
-  if (lang === 'hi') {
-    return `======================================================
-🌾 फार्मसाथी एआई — प्राथमिक पादप स्वास्थ्य विश्लेषण रिपोर्ट
-======================================================
-
-📌 विश्लेषण विवरण:
-• फसल का नाम: ${crop}
-• फोटो संदर्भ: ${fileName || 'खेत से ली गई पत्ती का फोटो'}
-• प्राथमिक स्थिति: पत्ती पर धब्बे / प्रारंभिक कवक या कीट प्रकोप
-• अनुमानित गंभीरता स्तर: मध्यम (नियंत्रण योग्य)
-
-🔍 पहचाने गए मुख्य लक्षण:
-• पत्तियों पर भूरे या पीले रंग के छल्लेदार धब्बे दिख रहे हैं।
-• किनारे हल्के मुड़े हुए हैं जो रसचूसक कीटों या फफूंद (Fungal Infection) की शुरुआत दर्शाते हैं।
-• पौधे की मुख्य नसें अभी हरी और मजबूत स्थिति में हैं।
-
-🌱 सुरक्षित जैविक एवं एकीकृत उपचार योजना:
-1. नीम तेल का स्प्रे:
-   - 1500 PPM नीम तेल 5 मिली प्रति लीटर पानी में 1 मिली लिक्विड साबुन मिलाकर सुबह या शाम छिड़कें।
-2. जैविक कवकनाशी:
-   - *ट्राइकोडर्मा विरिडी* या *स्यूडोमोनास फ्लोरेसेंस* 5 ग्राम प्रति लीटर पानी में मिलाकर छिड़काव करें।
-3. पोषण सुदृढ़ीकरण:
-   - पौधे की प्रतिरोधक क्षमता बढ़ाने हेतु 19:19:19 (5 ग्राम/लीटर) का पर्णीय छिड़काव करें।
-
-⚠️ कृषि सुरक्षा सूचना:
-यह रिपोर्ट दृश्य लक्षणों पर आधारित एक प्रारंभिक कृषक सलाह है। बाजार से कोई भी रसायन खरीदने से पहले अपने नजदीकी कृषि विज्ञान केंद्र (KVK) या कृषि अधिकारी से पुष्टि अवश्य करें।`;
-  }
-
-  if (lang === 'mr') {
-    return `======================================================
-🌾 फार्मसाथी AI — पीक आरोग्य व रोग निदान अहवाल
-======================================================
-
-📌 तपासणी तपशील:
-• पिकाचे नाव: ${crop}
-• फोटो संदर्भ: ${fileName || 'शेत प्रत्यक्ष नमुना'}
-• प्राथमिक स्थिती: पानांवर ठिपके / प्राथमिक बुरशीजन्य किंवा रसशोषक कीड प्रादुर्भाव
-• तीव्रता पातळी: मध्यम (वेळेवर नियंत्रण शक्य)
-
-🔍 दिसून आलेली प्रमुख लक्षणे:
-• पानांवर गोलाकार तांबूस-तपकिरी रंगाचे डाग दिसत आहेत.
-• पानांच्या कडा किंचित आकसल्या असून रसशोषक किडींचा प्रादुर्भाव असू शकतो.
-• खोड व मुख्य शिरा अद्याप निरोगी स्थितीत आहेत.
-
-🌱 सुरक्षित सेंद्रिय व एकात्मिक उपाययोजना:
-1. निंबोळी अर्क / नीम तेल:
-   - ५ मिली नीम तेल (१५०० PPM) प्रति लिटर पाण्यात मिसळून संपूर्ण झाडावर फवारणी करावी.
-2. जैविक बुरशीनाशक:
-   - *ट्रायकोडर्मा व्हिरीडी* ५ ग्रॅम प्रति लिटर पाण्यात मिसळून संध्याकाळी फवारावे.
-3. विद्राव्य खतांची मात्रा:
-   - पिकाची प्रतिकारशक्ती वाढवण्यासाठी १९:१९:१९ किंवा ०:५२:३४ (५ ग्रॅम प्रति लिटर) चा सौम्य फवारा द्यावा.
-
-⚠️ शेतकरी बंधूंसाठी सूचना:
-हा अहवाल केवळ प्राथमिक मार्गदर्शनासाठी आहे. कोणत्याही रासायनिक औषधांची खरेदी करण्यापूर्वी स्थानिक कृषी विज्ञान केंद्र (KVK) किंवा कृषी सहाय्यकांचा सल्ला घ्या.`;
-  }
-
-  // English default
-  return `======================================================
-🌾 FARMSAATHI AI — PLANT HEALTH & DISEASE TRIAGE REPORT
-======================================================
-
-📌 SAMPLE SUMMARY:
-• Analyzed Crop: ${crop}
-• Image Reference: ${fileName || 'Field Camera Sample'}
-• Preliminary Diagnosis: Foliar Spotting / Early Fungal or Sucking Pest Infestation
-• Urgency Level: Moderate (Action recommended within 48-72 hours)
-
-🔍 OBSERVABLE SYMPTOMS:
-• Concentric brownish or yellowish lesions observed across the leaf blade.
-• Mild chlorosis (yellowing) along leaf margins indicating possible nutrient stress or mite/thrip activity.
-• Main vascular veins remain largely intact with no complete necrosis.
-
-🌱 INTEGRATED CROP PROTECTION PLAN:
-1. Bio-Repellent Spray:
-   - Apply Neem Oil (1500 PPM) at 5 ml/liter of water with a wetting agent during cool morning or evening hours.
-2. Bio-Fungicide Application:
-   - Spray *Trichoderma viride* or *Pseudomonas fluorescens* at 5 g/liter of water.
-3. Nutrient Fortification:
-   - Apply foliar spray of water-soluble NPK 19:19:19 (5 g/L) to replenish damaged leaf tissue.
-
-⚠️ AGRICULTURAL SAFETY ADVISORY:
-This report provides preliminary field triage based on visual image analysis. It is not a certified laboratory culturing report. Consult your local Krishi Vigyan Kendra (KVK) agronomist before purchasing agrochemicals.`;
-}
-
-// OpenAI Chat completion
-async function askChat(message, language = 'en', profile = {}, history = []) {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (apiKey && apiKey.trim()) {
-    try {
-      const langNames = { en: 'English', hi: 'Hindi (हिन्दी)', mr: 'Marathi (मराठी)' };
-      const targetLanguage = langNames[language] || 'English';
-      const farmContext = [
-        profile.full_name ? `Farmer Name: ${profile.full_name}` : '',
-        profile.village ? `Village: ${profile.village}` : '',
-        profile.district ? `District: ${profile.district}` : '',
-        profile.state ? `State: ${profile.state}` : '',
-        profile.main_crop ? `Primary Crop: ${profile.main_crop}` : '',
-        profile.soil_type ? `Soil Type: ${profile.soil_type}` : '',
-        profile.irrigation_method ? `Irrigation: ${profile.irrigation_method}` : ''
-      ].filter(Boolean).join('; ');
-
-      const formattedHistory = Array.isArray(history) ? history.slice(-6).map(h => ({
-        role: h.role === 'user' ? 'user' : 'assistant',
-        content: String(h.content || '').slice(0, 2000)
-      })) : [];
-
-      const payload = {
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        temperature: 0.3,
-        messages: [
-          {
-            role: 'system',
-            content: `You are FarmSaathi AI, an expert agricultural assistant designed for Indian farmers. Always respond in ${targetLanguage}. Keep advice practical, safe, and culturally relevant for Indian farming conditions. Use farm context when relevant: ${farmContext || 'General farm'}. Emphasize Integrated Pest Management (IPM), soil health, and safe practices. Never prescribe unsafe chemical dosages. Advise consulting local Krishi Vigyan Kendra (KVK) for critical diagnoses.`
-          },
-          ...formattedHistory,
-          { role: 'user', content: message }
-        ]
-      };
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (response.ok && data.choices && data.choices[0]) {
-        return {
-          answer: data.choices[0].message.content.trim(),
-          mode: 'ai-cloud'
-        };
-      }
-    } catch (err) {
-      console.warn('OpenAI chat API request error, falling back to autonomous engine:', err.message);
+function loadEnvFile() {
+  const possiblePaths = [
+    path.join(__dirname, '..', '..', '.env'),
+    path.join(process.cwd(), '.env'),
+    path.join(__dirname, '.env')
+  ];
+  for (const envPath of possiblePaths) {
+    if (fs.existsSync(envPath)) {
+      try {
+        const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed && !trimmed.startsWith('#')) {
+            const idx = trimmed.indexOf('=');
+            if (idx !== -1) {
+              const key = trimmed.slice(0, idx).trim();
+              const val = trimmed.slice(idx + 1).trim().replace(/(^['"]|['"]$)/g, '');
+              if (val) process.env[key] = val;
+            }
+          }
+        }
+        break;
+      } catch (e) {}
     }
   }
+}
 
-  // Autonomous fallback
+function getAiConfigStatus() {
+  let geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+  let openAiKey = (process.env.OPENAI_API_KEY || '').trim();
+
+  if (!geminiKey && !openAiKey) {
+    loadEnvFile();
+    geminiKey = (process.env.GEMINI_API_KEY || '').trim();
+    openAiKey = (process.env.OPENAI_API_KEY || '').trim();
+  }
+
+  let activeProvider = 'none';
+  if (geminiKey) activeProvider = 'gemini';
+  else if (openAiKey) activeProvider = 'openai';
+
   return {
-    answer: getAutonomousAgronomicAdvice(message, language, profile),
-    mode: 'expert-engine'
+    hasKey: activeProvider !== 'none',
+    provider: activeProvider,
+    geminiConfigured: Boolean(geminiKey),
+    openaiConfigured: Boolean(openAiKey),
+    model: activeProvider === 'gemini'
+      ? (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite')
+      : (process.env.OPENAI_MODEL || 'gpt-4o-mini')
   };
 }
 
-// OpenAI Vision Image Analysis
+// ==============================================================================
+// 1. GENUINE AGRICULTURAL CHAT ASSISTANT
+// ==============================================================================
+async function askChat(message, language = 'en', profile = {}, history = []) {
+  const config = getAiConfigStatus();
+
+  if (!config.hasKey) {
+    return {
+      success: false,
+      missingConfig: true,
+      error: 'AI Provider Not Configured',
+      answer: '⚠️ **AI Service Configuration Missing**\n\n' +
+        'Ask FarmSaathi AI requires a real AI API key to generate genuine, question-specific advice.\n\n' +
+        '**How to configure:**\n' +
+        '1. Get a free API key from Google AI Studio (`GEMINI_API_KEY`) or OpenAI (`OPENAI_API_KEY`).\n' +
+        '2. Add it to your server `.env` file or Vercel Environment Variables:\n' +
+        '   `GEMINI_API_KEY=your_key_here` or `OPENAI_API_KEY=your_key_here`\n' +
+        '3. Restart your server (`node server.js`).\n\n' +
+        'Once configured, FarmSaathi AI will answer your exact questions in English, Hindi, or Marathi with tailored Integrated Pest Management (IPM), soil context, and crop precautions.',
+      mode: 'unconfigured'
+    };
+  }
+
+  const langNames = {
+    en: 'English (simple, accessible vocabulary for Indian agriculture)',
+    hi: 'हिन्दी (Hindi - सरल एवं स्पष्ट कृषि भाषा)',
+    mr: 'मराठी (Marathi - शेतकरी बांधवांसाठी सोपी व स्पष्ट भाषा)'
+  };
+  const targetLanguage = langNames[language] || langNames.en;
+
+  const rawFarmerName = (profile && (profile.full_name || profile.fullName)) || '';
+  const farmerName = (rawFarmerName && rawFarmerName.trim() !== 'Rahul Patil') ? rawFarmerName.trim() : '';
+
+  const farmContext = [
+    farmerName ? `Farmer Name: ${farmerName}` : '',
+    profile.village || profile.district ? `Location: ${[profile.village, profile.district, profile.state].filter(Boolean).join(', ')}` : '',
+    profile.main_crop ? `Primary Crop: ${profile.main_crop}` : '',
+    profile.farm_area ? `Farm Area: ${profile.farm_area} ${profile.area_unit || 'acres'}` : '',
+    profile.soil_type ? `Soil Type: ${profile.soil_type}` : '',
+    profile.irrigation_method ? `Irrigation System: ${profile.irrigation_method}` : '',
+    profile.season ? `Current Season: ${profile.season}` : ''
+  ].filter(Boolean).join(' | ');
+
+  const systemPrompt = `You are FarmSaathi AI, an expert, trustworthy agricultural advisor created specifically for Indian farmers.
+Target Language: Respond purely in ${targetLanguage}.
+Available Farmer Farm Profile: ${farmContext || 'General Indian farming context'}.
+
+CRITICAL INSTRUCTIONS:
+1. GREETING: If greeting the farmer, ${farmerName ? `address them warmly as "${farmerName}"` : `use a respectful neutral greeting (such as "Hello Farmer", "नमस्ते किसान भाई", or "नमस्कार शेतकरी मित्र")`}. NEVER greet with any placeholder or assumed name like "Rahul Patil".
+2. Address the farmer's SPECIFIC question directly. Do not give generic or boilerplate speeches.
+3. Consider their crop, soil, location, and season whenever provided in the farm profile or chat history.
+4. If critical details are missing to give a safe recommendation (such as exact crop stage, pest symptom appearance, or recent rainfall), politely ask the necessary follow-up question.
+5. Emphasize sustainable Integrated Pest Management (IPM), biological controls (e.g., Neem oil, Trichoderma, Beauveria bassiana, pheromone traps), and balanced soil nutrition.
+6. PRECAUTIONS & TIMING: When mentioning any agricultural inputs, specify application timing (early morning or late evening), wind direction, protective gear (mask and gloves), and pre-harvest intervals.
+7. AVOID unsupported facts: Never invent chemical dosages, guarantee harvest yields, or fabricate specific brand claims.
+8. Clearly acknowledge uncertainty for ambiguous symptoms and advise consulting the nearest Krishi Vigyan Kendra (KVK) or calling the Kisan Call Center toll-free at 1800-180-1551.
+9. Maintain conversation continuity: review previous messages to answer follow-up questions cohesively.`;
+
+  // --- GOOGLE GEMINI PROVIDER ---
+  if (config.provider === 'gemini') {
+    const apiKey = process.env.GEMINI_API_KEY.trim();
+    let model = (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
+    if (model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash') {
+      model = 'gemini-3.5-flash-lite';
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const formattedContents = [];
+    if (Array.isArray(history) && history.length > 0) {
+      for (const h of history.slice(-6)) {
+        if (!h.content) continue;
+        formattedContents.push({
+          role: h.role === 'user' ? 'user' : 'model',
+          parts: [{ text: String(h.content).slice(0, 2000) }]
+        });
+      }
+    }
+    // Append current user message
+    formattedContents.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    const body = {
+      system_instruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: formattedContents,
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 1200
+      }
+    };
+
+    let lastErr = null;
+    let data = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutTimer = setTimeout(() => controller.abort(), 45000);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutTimer);
+        data = await res.json();
+        if (res.ok && data.candidates && data.candidates[0] && data.candidates[0].content) {
+          const text = data.candidates[0].content.parts.map(p => p.text).join('\n').trim();
+          return {
+            success: true,
+            answer: text,
+            mode: 'gemini-ai',
+            model: model
+          };
+        }
+        if (data && data.error) {
+          lastErr = new Error(`Google Gemini Error: ${data.error.message || 'API call failed'}`);
+          if (res.status >= 400 && res.status < 500) break;
+        }
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1200));
+        }
+      }
+    }
+
+    const errDetail = (data && data.error && data.error.message) || (lastErr && lastErr.message) || 'Gemini API call failed';
+    throw new Error(`Google Gemini Error: ${errDetail}`);
+  }
+
+  // --- OPENAI PROVIDER ---
+  if (config.provider === 'openai') {
+    const apiKey = process.env.OPENAI_API_KEY.trim();
+    const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+    const formattedMessages = [
+      { role: 'system', content: systemPrompt }
+    ];
+
+    if (Array.isArray(history) && history.length > 0) {
+      for (const h of history.slice(-6)) {
+        if (!h.content) continue;
+        formattedMessages.push({
+          role: h.role === 'user' ? 'user' : 'assistant',
+          content: String(h.content).slice(0, 2000)
+        });
+      }
+    }
+    formattedMessages.push({ role: 'user', content: message });
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model,
+        temperature: 0.3,
+        max_tokens: 1200,
+        messages: formattedMessages
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.choices && data.choices[0] && data.choices[0].message) {
+      return {
+        success: true,
+        answer: data.choices[0].message.content.trim(),
+        mode: 'openai-ai',
+        model: model
+      };
+    } else {
+      const errDetail = (data.error && data.error.message) || 'OpenAI API call failed';
+      throw new Error(`OpenAI Error: ${errDetail}`);
+    }
+  }
+
+  throw new Error('No supported AI provider active.');
+}
+
+// ==============================================================================
+// 2. GENUINE IMAGE-BASED MULTIMODAL CROP ANALYSIS
+// ==============================================================================
 async function analyzeCropPhoto(imageBufferOrBase64, mimeType = 'image/jpeg', cropName = '', fileName = '', language = 'en') {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const config = getAiConfigStatus();
 
-  if (apiKey && apiKey.trim() && imageBufferOrBase64) {
-    try {
-      const base64Data = typeof imageBufferOrBase64 === 'string' && imageBufferOrBase64.startsWith('data:')
-        ? imageBufferOrBase64
-        : `data:${mimeType};base64,${typeof imageBufferOrBase64 === 'string' ? imageBufferOrBase64 : imageBufferOrBase64.toString('base64')}`;
+  if (!config.hasKey) {
+    return {
+      success: false,
+      missingConfig: true,
+      error: 'Vision AI Configuration Required',
+      report: '⚠️ **Vision AI Configuration Missing**\n\n' +
+        'Genuine crop image pixel analysis requires a vision-capable AI model (Google Gemini or OpenAI GPT-4o).\n\n' +
+        '**To enable real image analysis:**\n' +
+        '1. Set `GEMINI_API_KEY=...` or `OPENAI_API_KEY=...` in your server `.env` or Vercel Environment Variables.\n' +
+        '2. Restart your server (`node server.js`).\n\n' +
+        'Once enabled, FarmSaathi AI inspects leaf lesions, pest damage, discoloration, and fungal patterns directly from your uploaded photo pixels.',
+      crop: cropName || 'Unspecified Crop',
+      mode: 'unconfigured'
+    };
+  }
 
-      const langNames = { en: 'English', hi: 'Hindi (हिन्दी)', mr: 'Marathi (मराठी)' };
-      const targetLang = langNames[language] || 'English';
+  if (!imageBufferOrBase64) {
+    throw new Error('No image data provided for visual crop analysis.');
+  }
 
-      const prompt = `You are an expert plant pathologist and agronomist evaluating a crop image in India.
-Context crop name provided by farmer: ${cropName || 'Not specified'}.
-Provide structured diagnosis in ${targetLang} with these sections:
-1. 🌾 Crop & Plant Part Identification
-2. 🔍 Visible Symptoms & Primary Diagnosis
-3. ⚡ Severity & Spread Risk (Low, Medium, High)
-4. 🌱 Recommended Integrated Treatment Plan (Neem oil, biological controls, balanced nutrition)
-5. 🛡️ Safety & Consultation Advice (KVK referral)`;
+  // Parse pure Base64 data and mime type
+  let pureBase64 = '';
+  let resolvedMime = mimeType || 'image/jpeg';
 
-      const payload = {
-        model: process.env.OPENAI_VISION_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  if (typeof imageBufferOrBase64 === 'string') {
+    if (imageBufferOrBase64.startsWith('data:')) {
+      const parts = imageBufferOrBase64.split(',');
+      const meta = parts[0];
+      pureBase64 = parts[1];
+      const match = meta.match(/data:(.*?);base64/);
+      if (match && match[1]) resolvedMime = match[1];
+    } else {
+      pureBase64 = imageBufferOrBase64;
+    }
+  } else if (Buffer.isBuffer(imageBufferOrBase64)) {
+    pureBase64 = imageBufferOrBase64.toString('base64');
+  }
+
+  const langNames = {
+    en: 'English',
+    hi: 'हिन्दी (Hindi)',
+    mr: 'मराठी (Marathi)'
+  };
+  const targetLanguage = langNames[language] || 'English';
+
+  const visionPrompt = `You are a senior plant pathologist and agronomist analyzing an actual farmer crop photo from India.
+Context Crop Hint provided by farmer: "${cropName || 'Not specified - identify from image'}".
+Image File: "${fileName || 'crop_photo.jpg'}".
+Language for Report: Respond in ${targetLanguage}.
+
+Perform a detailed, scientific, and practical diagnosis based on visible visual evidence in the image:
+
+Structure your response with clear Markdown headings:
+### 1. 🌾 Crop & Plant Part Identification
+- Identify the crop/plant shown in the image and the specific organ (leaf, stem, pod, boll, root, fruit).
+- Assess overall plant vitality and vigor visible.
+
+### 2. 🔍 Observable Visual Symptoms
+- Describe observable visual signs in detail: lesion geometry (concentric rings, angular water-soaked spots, irregular blotches), color variations (yellow chlorosis, brown necrosis, reddish margins, purple patches), fungal powdery/downy growth, sucking pest stippling, or insect feeding holes.
+- State which part of the leaf/organ is affected (veins, interveinal tissue, margins, tips).
+
+### 3. 🧪 Preliminary Diagnosis & Likelihood
+- State the most probable disease, pest infestation, or physiological/nutrient disorder.
+- Clearly distinguish between a preliminary visual diagnosis and a certified laboratory culture test.
+- Confidence Level: State confidence (e.g., High, Moderate, Inconclusive) and state if additional angle photos or leaf underside photos are needed.
+
+### 4. 🌱 Integrated Pest Management (IPM) & Crop Care Plan
+- **Immediate Cultural Actions:** Infected leaf sanitation, spacing, weeding, or drainage adjustments.
+- **Organic & Biological Solutions:** Safe sprays (e.g., 1500 PPM Neem oil at 5ml/L, Trichoderma viride, Beauveria bassiana, or cow urine/buttermilk formulations).
+- **Nutrient Balancing:** Micro-nutrients or foliar supplements to help crop recovery.
+- **Application Precautions:** Time of spray (early morning / cool evening), use of mask/gloves, spray drift precautions.
+
+### 5. 🛡️ Advisory & Expert Verification
+- Remind the farmer to consult their local Krishi Vigyan Kendra (KVK) agronomist or block agriculture development officer (Taluka Krishi Adhikari) before purchasing commercial chemicals.`;
+
+  // --- GEMINI MULTIMODAL VISION ---
+  if (config.provider === 'gemini') {
+    let model = (process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
+    if (model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash') {
+      model = 'gemini-3.5-flash-lite';
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const body = {
+      contents: [
+        {
+          parts: [
+            { text: visionPrompt },
+            {
+              inline_data: {
+                mime_type: resolvedMime,
+                data: pureBase64
+              }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1400
+      }
+    };
+
+    let lastErr = null;
+    let data = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutTimer = setTimeout(() => controller.abort(), 55000);
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutTimer);
+        data = await res.json();
+        if (res.ok && data.candidates && data.candidates[0] && data.candidates[0].content) {
+          const text = data.candidates[0].content.parts.map(p => p.text).join('\n').trim();
+          return {
+            success: true,
+            report: text,
+            crop: cropName || 'Analyzed Crop',
+            mode: 'gemini-vision',
+            model: model
+          };
+        }
+        if (data && data.error) {
+          lastErr = new Error(`Google Gemini Vision Error: ${data.error.message || 'Vision API call failed'}`);
+          if (res.status >= 400 && res.status < 500) break;
+        }
+      } catch (err) {
+        lastErr = err;
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+    }
+
+    const errDetail = (data && data.error && data.error.message) || (lastErr && lastErr.message) || 'Gemini Vision API error';
+    throw new Error(`Google Gemini Vision Error: ${errDetail}`);
+  }
+
+  // --- OPENAI MULTIMODAL VISION ---
+  if (config.provider === 'openai') {
+    const apiKey = process.env.OPENAI_API_KEY.trim();
+    const model = process.env.OPENAI_VISION_MODEL || process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    const dataUrl = `data:${resolvedMime};base64,${pureBase64}`;
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 1400,
         messages: [
           {
             role: 'user',
             content: [
-              { type: 'text', text: prompt },
-              { type: 'image_url', image_url: { url: base64Data, detail: 'low' } }
+              { type: 'text', text: visionPrompt },
+              { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } }
             ]
           }
-        ],
-        max_tokens: 1000
+        ]
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok && data.choices && data.choices[0] && data.choices[0].message) {
+      return {
+        success: true,
+        report: data.choices[0].message.content.trim(),
+        crop: cropName || 'Analyzed Crop',
+        mode: 'openai-vision',
+        model: model
       };
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-      if (response.ok && data.choices && data.choices[0]) {
-        return {
-          report: data.choices[0].message.content.trim(),
-          crop: cropName || 'Analyzed Crop',
-          mode: 'ai-vision'
-        };
-      }
-    } catch (err) {
-      console.warn('OpenAI vision analysis error, falling back to autonomous engine:', err.message);
+    } else {
+      const errDetail = (data.error && data.error.message) || 'OpenAI Vision API error';
+      throw new Error(`OpenAI Vision Error: ${errDetail}`);
     }
   }
 
-  // Autonomous fallback
-  return {
-    report: getAutonomousCropTriage(cropName, language, fileName),
-    crop: cropName || 'Farm Crop Sample',
-    mode: 'expert-engine'
-  };
+  throw new Error('No supported Vision AI provider configured.');
 }
 
 module.exports = {
-  getAutonomousAgronomicAdvice,
-  getAutonomousCropTriage,
+  getAiConfigStatus,
   askChat,
   analyzeCropPhoto
 };

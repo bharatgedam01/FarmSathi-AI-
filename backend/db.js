@@ -33,7 +33,7 @@ function getInitialSeedData() {
     users: [
       {
         id: 'user_demo',
-        fullName: 'Rahul Patil',
+        fullName: 'Demo Farmer',
         email: 'farmer@farmsaathi.in',
         phone: '+91 9876543210',
         passwordHash: demoHash,
@@ -51,7 +51,7 @@ function getInitialSeedData() {
     profiles: {
       user_demo: {
         userId: 'user_demo',
-        fullName: 'Rahul Patil',
+        fullName: 'Demo Farmer',
         phone: '+91 9876543210',
         village: 'Chamorshi',
         district: 'Gadchiroli',
@@ -296,8 +296,28 @@ function deleteSession(token) {
 // Profile API
 function getProfile(userId) {
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  return db.profiles[targetId] || db.profiles['user_demo'];
+  if (userId && db.profiles && db.profiles[userId]) {
+    return db.profiles[userId];
+  }
+  const user = (userId && db.users) ? db.users.find(u => u.id === userId) : null;
+  return {
+    userId: userId || 'anonymous',
+    fullName: (user && user.fullName) || '',
+    phone: (user && user.phone) || '',
+    village: '',
+    district: '',
+    state: 'Maharashtra',
+    preferredLanguage: 'en',
+    farmArea: '',
+    areaUnit: 'acres',
+    soilType: '',
+    irrigationMethod: '',
+    mainCrop: '',
+    season: 'Kharif',
+    latitude: null,
+    longitude: null,
+    updatedAt: new Date().toISOString()
+  };
 }
 
 function saveProfile(userId, profileData) {
@@ -380,6 +400,8 @@ function addActivity(userId, activityData) {
     name: String(activityData.name || '').trim(),
     category: String(activityData.category || 'General').trim(),
     date: String(activityData.date || new Date().toISOString().slice(0, 10)).trim(),
+    farm: String(activityData.farm || activityData.fieldName || '').trim(),
+    crop: String(activityData.crop || activityData.cropName || '').trim(),
     notes: String(activityData.notes || '').trim(),
     completed: Boolean(activityData.completed),
     createdAt: new Date().toISOString()
@@ -388,6 +410,25 @@ function addActivity(userId, activityData) {
   db.activities.unshift(newActivity);
   saveDb(db);
   return newActivity;
+}
+
+function updateActivity(userId, activityId, activityData) {
+  const db = getDb();
+  const targetId = userId || 'user_demo';
+  const act = db.activities.find(a => a.id === activityId && (a.userId === targetId || targetId === 'user_demo'));
+  if (act) {
+    if (activityData.name !== undefined) act.name = String(activityData.name).trim();
+    if (activityData.category !== undefined) act.category = String(activityData.category).trim();
+    if (activityData.date !== undefined) act.date = String(activityData.date).trim();
+    if (activityData.farm !== undefined) act.farm = String(activityData.farm).trim();
+    if (activityData.crop !== undefined) act.crop = String(activityData.crop).trim();
+    if (activityData.notes !== undefined) act.notes = String(activityData.notes).trim();
+    if (activityData.completed !== undefined) act.completed = Boolean(activityData.completed);
+    act.updatedAt = new Date().toISOString();
+    saveDb(db);
+    return act;
+  }
+  return null;
 }
 
 function deleteActivity(userId, activityId) {
@@ -424,10 +465,11 @@ function addAnalysis(userId, analysisData) {
   const targetId = userId || 'user_demo';
 
   const newAnalysis = {
-    id: 'scan_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex'),
+    id: analysisData.id || ('scan_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex')),
     userId: targetId,
     crop: String(analysisData.crop || 'Plant Specimen').trim(),
     fileName: String(analysisData.fileName || analysisData.file_name || 'photo.jpg').trim(),
+    imageUrl: analysisData.imageUrl || analysisData.image_url || analysisData.imagePath || analysisData.image_path || null,
     report: String(analysisData.report || '').trim(),
     isDemo: Boolean(analysisData.isDemo),
     createdAt: new Date().toISOString()
@@ -483,6 +525,7 @@ module.exports = {
   deleteCrop,
   getActivities,
   addActivity,
+  updateActivity,
   deleteActivity,
   toggleActivity,
   getAnalyses,

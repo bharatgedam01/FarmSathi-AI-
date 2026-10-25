@@ -7,6 +7,7 @@ const db = require('./db');
 const aiService = require('./services/aiService');
 const mandiService = require('./services/mandiService');
 const weatherService = require('./services/weatherService');
+const schemeService = require('./services/schemeService');
 
 // Helper to send JSON responses
 function sendJson(res, statusCode, data) {
@@ -47,15 +48,36 @@ function parseBody(req) {
   });
 }
 
-// Extract authenticated user or fallback to demo
+// Extract authenticated user or fallback to neutral anonymous session
 function getAuthUser(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
+    // 1. Try local session token
     const user = db.getUserByToken(authHeader);
     if (user) return user;
+
+    // 2. Try Supabase JWT
+    const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const parts = cleanToken.split('.');
+    if (parts.length === 3) {
+      try {
+        const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const json = Buffer.from(payloadBase64, 'base64').toString('utf8');
+        const payload = JSON.parse(json);
+        if (payload && (payload.sub || payload.id)) {
+          const meta = payload.user_metadata || {};
+          return {
+            id: payload.sub || payload.id,
+            fullName: meta.full_name || '',
+            email: payload.email || '',
+            isSupabase: true
+          };
+        }
+      } catch (e) {}
+    }
   }
-  // Default fallback user for open demo access
-  return { id: 'user_demo', fullName: 'Rahul Patil', email: 'farmer@farmsaathi.in' };
+  // Neutral anonymous fallback - never return another user's profile or hardcoded name
+  return { id: 'anonymous', fullName: '', email: '' };
 }
 
 // Dispatch to Netlify Function if existing
@@ -129,6 +151,12 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     if (pathname === '/api/status' || pathname === '/api/health') {
       const stats = db.getStats();
+      const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
+      const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '');
+      const hasAiKey = hasGeminiKey || hasOpenAiKey;
+      const activeProvider = hasGeminiKey ? 'Google Gemini' : (hasOpenAiKey ? 'OpenAI' : 'None');
+      const chatModel = hasGeminiKey ? (process.env.GEMINI_MODEL || 'gemini-1.5-flash') : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+
       sendJson(res, 200, {
         success: true,
         status: 'online',
@@ -137,6 +165,11 @@ async function handleApiRequest(req, res) {
         nodeVersion: process.version,
         uptimeSeconds: Math.floor(process.uptime()),
         timestamp: new Date().toISOString(),
+        aiConfigured: hasAiKey,
+        aiProvider: activeProvider,
+        chatModel: hasAiKey ? chatModel : 'Unconfigured (Awaiting GEMINI_API_KEY)',
+        visionConfigured: hasAiKey,
+        visionModel: hasAiKey ? chatModel : 'Unconfigured (Awaiting GEMINI_API_KEY)',
         supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
         stats: stats
@@ -294,6 +327,23 @@ async function handleApiRequest(req, res) {
         return true;
       }
 
+      if (method === 'PUT' || method === 'PATCH') {
+        const updated = db.updateActivity(user.id, actId, body);
+        sendJson(res, 200, { success: !!updated, message: updated ? 'Activity updated' : 'Activity not found', activity: updated });
+        return true;
+      }
+
+      if (method === 'GET') {
+        const activities = db.getActivities(user.id);
+        const act = activities.find(a => String(a.id) === String(actId));
+        if (act) {
+          sendJson(res, 200, { success: true, activity: act });
+        } else {
+          sendJson(res, 404, { success: false, error: 'Activity not found' });
+        }
+        return true;
+      }
+
       if (method === 'DELETE') {
         const deleted = db.deleteActivity(user.id, actId);
         sendJson(res, 200, { success: deleted, message: deleted ? 'Activity removed' : 'Activity not found' });
@@ -340,8 +390,17 @@ async function handleApiRequest(req, res) {
         sendJson(res, 400, { success: false, error: 'Please enter a farming question.' });
         return true;
       }
-      const chatRes = await aiService.askChat(message, body.language || 'en', body.profile || {}, body.history || []);
-      sendJson(res, 200, { success: true, answer: chatRes.answer, mode: chatRes.mode });
+      const clientProfile = Object.assign({}, body.profile || {});
+      if (!clientProfile.full_name || clientProfile.full_name === 'Rahul Patil') {
+        clientProfile.full_name = (user && user.fullName) || '';
+      }
+      const chatRes = await aiService.askChat(message, body.language || 'en', clientProfile, body.history || []);
+      sendJson(res, 200, { 
+        success: !chatRes.missingConfig, 
+        missingConfig: Boolean(chatRes.missingConfig),
+        answer: chatRes.answer, 
+        mode: chatRes.mode 
+      });
       return true;
     }
 
@@ -350,15 +409,46 @@ async function handleApiRequest(req, res) {
       const cropName = (body && body.cropName) || '';
       const fileName = (body && body.fileName) || 'crop_leaf.jpg';
       const language = (body && body.language) || 'en';
+
+      // Persist uploaded image to disk for permanent reference in Analysis History
+      let savedImageUrl = null;
+      if (image && typeof image === 'string' && image.startsWith('data:')) {
+        try {
+          const fs = require('fs');
+          const uploadsDir = path.join(__dirname, '..', 'data', 'uploads');
+          if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+          const extMatch = image.match(/data:image\/([a-zA-Z0-9+]+);base64/);
+          const ext = extMatch ? `.${extMatch[1]}` : '.jpg';
+          const cleanName = `scan_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+          const filePath = path.join(uploadsDir, cleanName);
+          const base64Content = image.split(',')[1];
+          if (base64Content) {
+            fs.writeFileSync(filePath, Buffer.from(base64Content, 'base64'));
+            savedImageUrl = `/uploads/${cleanName}`;
+          }
+        } catch (saveErr) {
+          console.warn('Could not save photo to disk in routes.js:', saveErr.message);
+        }
+      }
+
       const analyzeRes = await aiService.analyzeCropPhoto(image, 'image/jpeg', cropName, fileName, language);
-      sendJson(res, 200, { success: true, report: analyzeRes.report, crop: analyzeRes.crop, mode: analyzeRes.mode });
+      sendJson(res, 200, { 
+        success: !analyzeRes.missingConfig, 
+        missingConfig: Boolean(analyzeRes.missingConfig),
+        report: analyzeRes.report, 
+        crop: analyzeRes.crop, 
+        imageUrl: savedImageUrl || null,
+        mode: analyzeRes.mode 
+      });
       return true;
     }
 
     if (pathname === '/api/mandi' && method === 'GET') {
       const state = query.state || '';
       const search = query.q || query.search || query.crop || '';
-      const mandiRes = mandiService.queryMandiPrices({ state, query: search });
+      const sort = query.sort || '';
+      const forceRefresh = query.refresh === 'true' || query.refresh === '1';
+      const mandiRes = await mandiService.queryMandiPrices({ state, query: search, sort, forceRefresh });
       sendJson(res, 200, mandiRes);
       return true;
     }
@@ -372,6 +462,78 @@ async function handleApiRequest(req, res) {
       const lon = query.lon;
       const weatherData = await weatherService.getWeatherData({ city, lat, lon });
       sendJson(res, 200, weatherData);
+      return true;
+    }
+
+    // -------------------------------------------------------------
+    // 9. AUTOMATED GOVERNMENT SCHEMES & MONITORING ENDPOINTS
+    // -------------------------------------------------------------
+    if (pathname === '/api/schemes' && method === 'GET') {
+      const userProfile = db.getProfile(user.id);
+      const schemes = schemeService.getSchemes({
+        category: query.category,
+        state: query.state,
+        search: query.q || query.search
+      }, userProfile);
+
+      sendJson(res, 200, {
+        success: true,
+        count: schemes.length,
+        schemes: schemes
+      });
+      return true;
+    }
+
+    if (pathname === '/api/schemes/announcements' && method === 'GET') {
+      const announcements = schemeService.getAnnouncements(parseInt(query.limit, 10) || 20);
+      sendJson(res, 200, {
+        success: true,
+        count: announcements.length,
+        announcements: announcements
+      });
+      return true;
+    }
+
+    if (pathname === '/api/schemes/status' && method === 'GET') {
+      const status = schemeService.getMonitoringStatus();
+      sendJson(res, 200, {
+        success: true,
+        monitoring: status
+      });
+      return true;
+    }
+
+    // Secure Cron & Manual Sync trigger (Vercel Cron & Administrator execution)
+    if ((pathname === '/api/cron/schemes' || pathname === '/api/schemes/sync') && (method === 'GET' || method === 'POST')) {
+      const authHeader = req.headers['authorization'] || '';
+      const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const providedSecret = req.headers['x-cron-secret'] || query.secret || query.key || bearerToken;
+      const expectedSecret = process.env.CRON_SECRET || 'farmsaathi-cron-secret-2026';
+
+      const isAuthorized = (providedSecret && providedSecret === expectedSecret) || (user && user.id && user.id !== 'anonymous');
+      if (!isAuthorized) {
+        sendJson(res, 401, { success: false, error: 'Unauthorized: CRON_SECRET or authenticated session required' });
+        return true;
+      }
+
+      const syncResult = await schemeService.checkForUpdates(true);
+      sendJson(res, 200, {
+        success: true,
+        message: 'Automated Government Schemes & Announcements check completed',
+        result: syncResult
+      });
+      return true;
+    }
+
+    if (pathname.startsWith('/api/schemes/') && method === 'GET') {
+      const schemeId = pathname.replace('/api/schemes/', '');
+      const userProfile = db.getProfile(user.id);
+      const scheme = schemeService.getSchemeById(schemeId, userProfile);
+      if (scheme) {
+        sendJson(res, 200, { success: true, scheme: scheme });
+      } else {
+        sendJson(res, 404, { success: false, error: 'Scheme not found' });
+      }
       return true;
     }
 

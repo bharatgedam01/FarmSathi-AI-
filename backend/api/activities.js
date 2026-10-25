@@ -68,6 +68,16 @@ module.exports = async (req, res) => {
   }
 
   if (method === 'GET') {
+    if (actId) {
+      const activities = dbService.getActivities(userId);
+      const act = activities.find(a => String(a.id) === String(actId));
+      if (act) {
+        sendJson(res, 200, { success: true, activity: act });
+      } else {
+        sendJson(res, 404, { success: false, error: 'Activity not found' });
+      }
+      return;
+    }
     const activities = dbService.getActivities(userId);
     sendJson(res, 200, { success: true, count: activities.length, activities });
     return;
@@ -77,6 +87,17 @@ module.exports = async (req, res) => {
     const body = await parseBody(req);
     const newAct = dbService.addActivity(userId, body);
     sendJson(res, 201, { success: true, message: 'Activity scheduled successfully', activity: newAct });
+    return;
+  }
+
+  if (method === 'PUT' || (method === 'PATCH' && !isToggle)) {
+    if (!actId) {
+      sendJson(res, 400, { success: false, error: 'Activity ID is required for update' });
+      return;
+    }
+    const body = await parseBody(req);
+    const updated = dbService.updateActivity(userId, actId, body);
+    sendJson(res, 200, { success: !!updated, message: updated ? 'Activity updated' : 'Activity not found', activity: updated });
     return;
   }
 

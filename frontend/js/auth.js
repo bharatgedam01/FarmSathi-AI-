@@ -62,7 +62,8 @@
       : 'http://localhost:3000';
     var url = cleanPath.startsWith('http') ? cleanPath : (baseUrl + cleanPath);
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = controller ? setTimeout(function() { controller.abort(); }, 8000) : null;
+    var timeoutMs = (cleanPath.includes('/chat') || cleanPath.includes('/analyze')) ? 60000 : 15000;
+    var timer = controller ? setTimeout(function() { controller.abort(); }, timeoutMs) : null;
 
     try {
       var opts = {
@@ -133,9 +134,18 @@
         var sbData = await window.SupabaseClient.signIn(email, password);
         if (sbData && sbData.user) {
           var userMeta = sbData.user.user_metadata || {};
+          var fullName = (userMeta.full_name || '').trim();
+          if (!fullName && window.SupabaseClient.fetchProfile) {
+            try {
+              var sbProf = await window.SupabaseClient.fetchProfile(sbData.user.id);
+              if (sbProf && (sbProf.full_name || sbProf.fullName)) {
+                fullName = (sbProf.full_name || sbProf.fullName).trim();
+              }
+            } catch (e) {}
+          }
           var user = {
             id: sbData.user.id,
-            fullName: userMeta.full_name || email.split('@')[0],
+            fullName: fullName,
             email: sbData.user.email,
             authProvider: 'supabase'
           };
@@ -348,15 +358,20 @@
     var pageGreeting = $('pageGreeting');
 
     var profile = (window.FarmerProfile && window.FarmerProfile.getProfile) ? window.FarmerProfile.getProfile() : {};
-    var name = (currentUser && (currentUser.fullName || currentUser.full_name)) || profile.full_name || 'Farmer';
+    var rawName = (currentUser && (currentUser.fullName || currentUser.full_name)) || (profile && (profile.full_name || profile.fullName)) || '';
+    if (rawName === 'Rahul Patil') {
+      rawName = (currentUser && (currentUser.fullName || currentUser.full_name)) || '';
+    }
+    var displayName = rawName.trim();
+    var nameOrFallback = displayName || 'Farmer';
     var email = (currentUser && currentUser.email) || '';
 
     if (topUserName) {
-      topUserName.textContent = name;
+      topUserName.textContent = nameOrFallback;
     }
 
-    if (pageGreeting && name) {
-      pageGreeting.textContent = 'Good day, ' + name + ' 👋';
+    if (pageGreeting) {
+      pageGreeting.textContent = 'Good day, ' + nameOrFallback + ' 👋';
     }
 
     var isSupabase = window.SupabaseClient && window.SupabaseClient.isConfigured();
@@ -364,24 +379,28 @@
 
     if (isSupabase && currentUser) {
       if (dot) dot.className = 'account-dot';
-      var acctText = '🟢 Supabase Secure Session · ' + name + (email ? ' (' + email + ')' : '');
+      var acctText = '🟢 Supabase Secure Session · ' + nameOrFallback + (email ? ' (' + email + ')' : '');
       if (label) label.textContent = acctText;
       if (badgeSync) badgeSync.textContent = 'Supabase Cloud Synced ✓';
       if (storageModeText) storageModeText.textContent = 'Supabase Cloud PostgreSQL (with Row Level Security)';
     } else if (isBackend && currentUser) {
       if (dot) dot.className = 'account-dot';
-      var acctText = '🟢 Authenticated Farmer · ' + name + (email ? ' (' + email + ')' : '');
+      var acctText = '🟢 Authenticated Farmer · ' + nameOrFallback + (email ? ' (' + email + ')' : '');
       if (label) label.textContent = acctText;
       if (badgeSync) badgeSync.textContent = 'Node.js Backend Synced ✓';
       if (storageModeText) storageModeText.textContent = 'Node.js Persistent JSON Database (data/database.json)';
     } else if (currentUser) {
       if (dot) dot.className = 'account-dot';
-      if (label) label.textContent = name + ' · Authenticated Farmer';
+      if (label) label.textContent = nameOrFallback + ' · Authenticated Farmer';
       if (badgeSync) badgeSync.textContent = 'Local Storage Mode';
       if (storageModeText) storageModeText.textContent = 'Local Browser Storage';
     } else {
       if (dot) dot.className = 'account-dot offline';
       if (label) label.textContent = 'Unauthenticated Session';
+    }
+
+    if (typeof window.updateChatGreeting === 'function') {
+      window.updateChatGreeting();
     }
   }
 
@@ -400,9 +419,20 @@
           var session = await window.SupabaseClient.getSession();
           if (session && session.user) {
             var meta = session.user.user_metadata || {};
+            var fullName = (meta.full_name || '').trim();
+
+            if (!fullName && window.SupabaseClient.fetchProfile) {
+              try {
+                var sbProf = await window.SupabaseClient.fetchProfile(session.user.id);
+                if (sbProf && (sbProf.full_name || sbProf.fullName)) {
+                  fullName = (sbProf.full_name || sbProf.fullName).trim();
+                }
+              } catch (e) {}
+            }
+
             currentUser = {
               id: session.user.id,
-              fullName: meta.full_name || session.user.email.split('@')[0],
+              fullName: fullName,
               email: session.user.email,
               authProvider: 'supabase'
             };
