@@ -43,43 +43,82 @@
     }
   </style>
   <script>
-    (async function verifyDashboardSession() {
-      try {
-        var sb = window.SupabaseClient;
-        if (sb && typeof sb.initFromApi === 'function') {
-          await sb.initFromApi();
-        }
-
-        var session = null;
-        if (sb && sb.isConfigured()) {
-          session = await sb.getSession();
-        }
-
-        var localUser = null;
-        try {
-          localUser = JSON.parse(localStorage.getItem('fs_current_user') || 'null');
-        } catch (e) {}
-        var authToken = localStorage.getItem('fs_auth_token');
-
-        if (!session && !localUser && !authToken) {
-          // Unauthenticated -> redirect to login
-          window.location.replace('/login.html?redirect=dashboard.html');
-          return;
-        }
-
-        // Authenticated -> smoothly dismiss overlay
-        window.addEventListener('DOMContentLoaded', function() {
-          var ov = document.getElementById('authGuardOverlay');
-          if (ov) {
-            ov.style.opacity = '0';
-            setTimeout(function() { if (ov && ov.parentNode) ov.parentNode.removeChild(ov); }, 250);
-          }
-        });
-      } catch (err) {
-        console.warn('Dashboard guard check:', err);
+    (function initAuthGuard() {
+      function dismissOverlay() {
         var ov = document.getElementById('authGuardOverlay');
-        if (ov) ov.remove();
+        if (!ov || ov.dataset.dismissed) return;
+        ov.dataset.dismissed = 'true';
+        ov.style.transition = 'opacity 0.25s ease-out';
+        ov.style.opacity = '0';
+        setTimeout(function() {
+          if (ov && ov.parentNode) {
+            ov.parentNode.removeChild(ov);
+          }
+        }, 260);
       }
+
+      function scheduleDismiss() {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', dismissOverlay, { once: true });
+        } else {
+          dismissOverlay();
+        }
+      }
+
+      // Hard safety timeout: Overlay CANNOT remain visible for more than 2.5 seconds under any circumstance
+      var safetyTimer = setTimeout(dismissOverlay, 2500);
+
+      // Fast-path synchronous check:
+      var localUser = null;
+      try {
+        localUser = JSON.parse(localStorage.getItem('fs_current_user') || 'null');
+      } catch (e) {}
+      var authToken = localStorage.getItem('fs_auth_token');
+
+      if (localUser || authToken) {
+        // Farmer already has an authenticated local session -> dismiss overlay immediately
+        scheduleDismiss();
+        return;
+      }
+
+      // If no local session found, check Supabase with a tight timeout cap (max 1.5s)
+      (async function verifyRemoteSession() {
+        try {
+          var sb = window.SupabaseClient;
+          if (sb) {
+            if (typeof sb.initFromApi === 'function') {
+              await Promise.race([
+                sb.initFromApi(),
+                new Promise(function(resolve) { setTimeout(resolve, 1500); })
+              ]);
+            }
+            if (typeof sb.isConfigured === 'function' && sb.isConfigured()) {
+              var session = await Promise.race([
+                sb.getSession(),
+                new Promise(function(resolve) { setTimeout(resolve, 1200); })
+              ]);
+              if (session && session.user) {
+                scheduleDismiss();
+                return;
+              }
+            }
+          }
+
+          // Double check local storage just in case another script wrote to it while awaiting
+          var recheckUser = localStorage.getItem('fs_current_user') || localStorage.getItem('fs_auth_token');
+          if (recheckUser) {
+            scheduleDismiss();
+            return;
+          }
+
+          // Truly unauthenticated -> clear safety timer and redirect to login
+          clearTimeout(safetyTimer);
+          window.location.replace('/login.html?redirect=dashboard.html');
+        } catch (err) {
+          console.warn('Dashboard guard check notice:', err);
+          scheduleDismiss();
+        }
+      })();
     })();
   </script>
 </head>

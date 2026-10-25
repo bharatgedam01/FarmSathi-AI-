@@ -411,7 +411,38 @@
 
   // Restore authenticated session on page load
   async function restoreSession() {
-    // 1. Check Supabase session
+    // 1. Fast path: Check stored session in Storage or localStorage first (instant local response)
+    var storedUser = null;
+    if (window.AppStorage) {
+      storedUser = window.AppStorage.get('current_user', null);
+    }
+    if (!storedUser) {
+      try {
+        var raw = localStorage.getItem('fs_current_user');
+        if (raw) storedUser = JSON.parse(raw);
+      } catch (e) {}
+    }
+
+    var token = (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get('auth_token', null) : null;
+    if (!token) {
+      try {
+        var rawT = localStorage.getItem('fs_auth_token');
+        if (rawT) {
+          try { token = JSON.parse(rawT); } catch (e) { token = rawT; }
+        }
+      } catch (e) {}
+    }
+
+    if (storedUser) {
+      currentUser = storedUser;
+      updateAuthUI();
+      // If not a supabase user, return immediately with zero network delay
+      if (currentUser.authProvider !== 'supabase') {
+        return currentUser;
+      }
+    }
+
+    // 2. Check Supabase session
     if (window.SupabaseClient) {
       if (typeof window.SupabaseClient.initFromApi === 'function') {
         try {
@@ -454,31 +485,7 @@
       }
     }
 
-    // 2. Check stored session in Storage or localStorage
-    var storedUser = null;
-    if (window.AppStorage) {
-      storedUser = window.AppStorage.get('current_user', null);
-    }
-    if (!storedUser) {
-      try {
-        var raw = localStorage.getItem('fs_current_user');
-        if (raw) storedUser = JSON.parse(raw);
-      } catch (e) {}
-    }
-
-    var token = (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get('auth_token', null) : null;
-    if (!token) {
-      try {
-        var rawT = localStorage.getItem('fs_auth_token');
-        if (rawT) {
-          try { token = JSON.parse(rawT); } catch (e) { token = rawT; }
-        }
-      } catch (e) {}
-    }
-
     if (storedUser) {
-      currentUser = storedUser;
-      updateAuthUI();
       return currentUser;
     }
 

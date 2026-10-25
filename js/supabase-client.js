@@ -254,18 +254,32 @@
     return sb.auth.onAuthStateChange(callback);
   }
 
+  var _initPromise = null;
   async function initFromApi() {
-    if (!isConfigured()) {
+    if (isConfigured()) return true;
+    if (_initPromise) return _initPromise;
+
+    _initPromise = (async function() {
       try {
-        var res = await fetch('/api/status');
-        if (res.ok) {
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timer = controller ? setTimeout(function() { controller.abort(); }, 2500) : null;
+        var res = await fetch('/api/status', { signal: controller ? controller.signal : undefined });
+        if (timer) clearTimeout(timer);
+        if (res && res.ok) {
           var data = await res.json();
           if (data && data.supabaseUrl && data.supabaseAnonKey) {
             setConfig(data.supabaseUrl, data.supabaseAnonKey);
+            return true;
           }
         }
-      } catch (e) {}
-    }
+      } catch (e) {
+      } finally {
+        _initPromise = null;
+      }
+      return false;
+    })();
+
+    return _initPromise;
   }
 
   // Auto-attempt backend status config
