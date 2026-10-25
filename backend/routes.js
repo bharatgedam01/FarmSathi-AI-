@@ -137,6 +137,8 @@ async function handleApiRequest(req, res) {
         nodeVersion: process.version,
         uptimeSeconds: Math.floor(process.uptime()),
         timestamp: new Date().toISOString(),
+        supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
         stats: stats
       });
       return true;
@@ -147,8 +149,8 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     if (pathname === '/api/auth/signup' && method === 'POST') {
       const { fullName, email, password, phone } = body;
-      if (!email || !password) {
-        sendJson(res, 400, { success: false, error: 'Email and password are required' });
+      if (!fullName || !fullName.trim() || !email || !email.includes('@') || !password || password.length < 6) {
+        sendJson(res, 400, { success: false, error: 'Full name, valid email, and password (at least 6 characters) are required' });
         return true;
       }
       try {

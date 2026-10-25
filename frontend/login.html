@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#143e2c">
+  <title>Farmer Login — FarmSaathi AI</title>
+  <meta name="description" content="Sign in to your FarmSaathi AI account to access your personalized farm records, crop disease diagnosis, and mandi market prices.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+
+  <!-- MODULAR STYLESHEETS -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+
+  <!-- SUPABASE CLIENT & AUTH SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body class="landing-body">
+
+  <div class="auth-page-wrapper">
+    <!-- Brand Header -->
+    <div class="auth-brand-head">
+      <a href="/" class="brand" style="text-decoration: none; justify-content: center; margin-bottom: 8px;">
+        <div class="brand-logo">🌱</div>
+        <div style="text-align: left;">
+          <div class="brand-title">FarmSaathi <span>AI</span></div>
+          <div class="brand-sub">Smart Farmer Platform</div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Login Card -->
+    <div class="auth-card-panel" id="loginCard">
+      <h1 class="auth-card-title">Farmer Sign In</h1>
+      <p class="auth-card-sub">
+        Sign in to your account to view your farm plots, crop health reports, and local mandi prices.
+      </p>
+
+      <form id="formLogin" class="fields-grid" novalidate onsubmit="handleLoginSubmit(event)">
+        <!-- Email -->
+        <label class="field full">
+          <span>Email Address</span>
+          <input class="input" id="loginEmail" type="email" placeholder="farmer@example.com" autocomplete="email" required>
+          <small id="loginEmailError" style="color: var(--danger); font-size: 11.5px; display: none;">Please enter your email.</small>
+        </label>
+
+        <!-- Password -->
+        <label class="field full">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Password</span>
+            <button type="button" class="btn-sm" id="btnForgotPassLink" onclick="showForgotPassword(true)" style="background: transparent; border: 0; color: var(--green); font-size: 12px; padding: 0; font-weight: 700; cursor: pointer;">Forgot Password?</button>
+          </div>
+          <div class="password-input-wrap">
+            <input class="input" id="loginPassword" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+            <button type="button" class="btn-toggle-eye" id="btnToggleLoginPass" onclick="togglePasswordVisibility('loginPassword', 'btnToggleLoginPass')" aria-label="Toggle password visibility">👁️</button>
+          </div>
+          <small id="loginPassError" style="color: var(--danger); font-size: 11.5px; display: none;">Please enter your password.</small>
+        </label>
+
+        <!-- Submit Button -->
+        <div class="field full" style="margin-top: 10px;">
+          <button type="submit" class="btn btn-primary" id="btnSubmitLogin" style="width: 100%; padding: 12px; font-size: 14.5px;">
+            Sign In to Dashboard
+          </button>
+        </div>
+      </form>
+
+      <!-- Status Feedback Box -->
+      <div id="loginStatusMsg" class="status-msg"></div>
+
+      <!-- Links to Register and Home -->
+      <div class="auth-divider">OR</div>
+
+      <div class="auth-footer-nav">
+        Don't have a farmer account yet? <a href="register.html" id="linkToRegister">Get Started Free</a>
+      </div>
+
+      <div style="margin-top: 14px; text-align: center; font-size: 12.5px;">
+        <a href="/" style="color: var(--muted); text-decoration: none;">← Back to FarmSaathi Home</a>
+      </div>
+    </div>
+
+    <!-- Forgot Password Drawer / Modal (Initially Hidden) -->
+    <div class="auth-card-panel" id="forgotPasswordCard" style="display: none; margin-top: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h2 style="margin: 0; font-size: 19px; color: var(--deep); font-weight: 800;">Reset Your Password</h2>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="showForgotPassword(false)" style="border: 0; font-size: 16px;">✕</button>
+      </div>
+      <p style="font-size: 13px; color: var(--muted); margin: 0 0 16px; line-height: 1.5;">
+        Enter your registered email address. We will send you a secure password reset link via Supabase Auth.
+      </p>
+
+      <form id="formForgotPassword" onsubmit="handleForgotPasswordSubmit(event)">
+        <label class="field full" style="margin-bottom: 14px;">
+          <span>Registered Email</span>
+          <input class="input" id="forgotEmail" type="email" placeholder="farmer@example.com" required>
+        </label>
+        <button type="submit" class="btn btn-lime" id="btnSubmitForgot" style="width: 100%; padding: 10px;">
+          Send Password Reset Link
+        </button>
+      </form>
+
+      <div id="forgotStatusMsg" class="status-msg" style="margin-top: 12px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // 1. Password Visibility Toggle
+    function togglePasswordVisibility(inputId, btnId) {
+      var input = document.getElementById(inputId);
+      var btn = document.getElementById(btnId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        if (btn) btn.textContent = '👁️';
+      }
+    }
+
+    // 2. Forgot Password Toggle
+    function showForgotPassword(show) {
+      var forgotCard = document.getElementById('forgotPasswordCard');
+      if (forgotCard) {
+        forgotCard.style.display = show ? 'block' : 'none';
+        if (show) {
+          var emailVal = (document.getElementById('loginEmail') && document.getElementById('loginEmail').value) || '';
+          var forgotInput = document.getElementById('forgotEmail');
+          if (forgotInput && emailVal) forgotInput.value = emailVal;
+          forgotCard.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+
+    // 3. Form Submission
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+
+      var email = (document.getElementById('loginEmail') && document.getElementById('loginEmail').value.trim()) || '';
+      var password = (document.getElementById('loginPassword') && document.getElementById('loginPassword').value) || '';
+
+      var statusMsg = document.getElementById('loginStatusMsg');
+      var btnSubmit = document.getElementById('btnSubmitLogin');
+
+      var hasError = false;
+      var emailErr = document.getElementById('loginEmailError');
+      var passErr = document.getElementById('loginPassError');
+
+      if (!email) {
+        if (emailErr) emailErr.style.display = 'block';
+        hasError = true;
+      } else if (emailErr) {
+        emailErr.style.display = 'none';
+      }
+
+      if (!password) {
+        if (passErr) passErr.style.display = 'block';
+        hasError = true;
+      } else if (passErr) {
+        passErr.style.display = 'none';
+      }
+
+      if (hasError) return;
+
+      // Loading state
+      if (btnSubmit) {
+        btnSubmit.classList.add('btn-submit-loading');
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Signing In…';
+      }
+
+      if (statusMsg) {
+        statusMsg.className = 'status-msg show';
+        statusMsg.textContent = 'Authenticating with Supabase…';
+      }
+
+      try {
+        var res = await window.AuthModule.signInUser(email, password);
+
+        if (statusMsg) {
+          statusMsg.className = 'status-msg show ok';
+          statusMsg.textContent = 'Login successful! Redirecting to your dashboard…';
+        }
+
+        // Get redirect parameter if any
+        var urlParams = new URLSearchParams(window.location.search);
+        var targetRedirect = urlParams.get('redirect') || 'dashboard.html';
+
+        setTimeout(function() {
+          window.location.href = targetRedirect;
+        }, 800);
+      } catch (err) {
+        console.error('Login error:', err);
+        var msg = err.message || 'Invalid email or password.';
+        if (msg.includes('Email not confirmed')) {
+          msg = 'Your email address has not been confirmed yet. Please check your inbox for the confirmation email from Supabase.';
+        }
+        if (statusMsg) {
+          statusMsg.className = 'status-msg show err';
+          statusMsg.textContent = msg;
+        }
+        if (btnSubmit) {
+          btnSubmit.classList.remove('btn-submit-loading');
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = 'Sign In to Dashboard';
+        }
+      }
+    }
+
+    // 4. Handle Password Reset Request
+    async function handleForgotPasswordSubmit(e) {
+      e.preventDefault();
+
+      var email = (document.getElementById('forgotEmail') && document.getElementById('forgotEmail').value.trim()) || '';
+      var statusMsg = document.getElementById('forgotStatusMsg');
+      var btn = document.getElementById('btnSubmitForgot');
+
+      if (!email) return;
+
+      if (btn) {
+        btn.classList.add('btn-submit-loading');
+        btn.disabled = true;
+        btn.textContent = 'Sending Reset Link…';
+      }
+
+      try {
+        var result = await window.AuthModule.requestPasswordReset(email);
+        if (statusMsg) {
+          statusMsg.className = 'status-msg show ok';
+          statusMsg.innerHTML = '<b>Password Reset Link Sent! ✉️</b><br>' + (result.message || 'Check your email inbox to reset your password.');
+        }
+        if (btn) {
+          btn.classList.remove('btn-submit-loading');
+          btn.disabled = false;
+          btn.textContent = 'Reset Link Sent ✓';
+        }
+      } catch (err) {
+        console.error('Password reset error:', err);
+        if (statusMsg) {
+          statusMsg.className = 'status-msg show err';
+          statusMsg.textContent = err.message || 'Unable to send reset link. Please verify your email.';
+        }
+        if (btn) {
+          btn.classList.remove('btn-submit-loading');
+          btn.disabled = false;
+          btn.textContent = 'Send Password Reset Link';
+        }
+      }
+    }
+
+    // 5. If already authenticated, redirect to dashboard
+    (async function checkExistingSession() {
+      try {
+        var sb = window.SupabaseClient;
+        if (sb && typeof sb.initFromApi === 'function') {
+          await sb.initFromApi();
+        }
+        if (sb && sb.isConfigured()) {
+          var session = await sb.getSession();
+          if (session && session.user) {
+            window.location.replace('dashboard.html');
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

@@ -23,6 +23,38 @@
       "destination": "/frontend/assets/:path*"
     },
     {
+      "source": "/login",
+      "destination": "/frontend/login.html"
+    },
+    {
+      "source": "/login.html",
+      "destination": "/frontend/login.html"
+    },
+    {
+      "source": "/register",
+      "destination": "/frontend/register.html"
+    },
+    {
+      "source": "/register.html",
+      "destination": "/frontend/register.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/frontend/dashboard.html"
+    },
+    {
+      "source": "/dashboard.html",
+      "destination": "/frontend/dashboard.html"
+    },
+    {
+      "source": "/reset-password",
+      "destination": "/frontend/reset-password.html"
+    },
+    {
+      "source": "/reset-password.html",
+      "destination": "/frontend/reset-password.html"
+    },
+    {
       "source": "/",
       "destination": "/frontend/index.html"
     },

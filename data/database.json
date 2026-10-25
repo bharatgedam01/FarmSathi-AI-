@@ -17,6 +17,33 @@
       "passwordHash": "95aeef5c8c3ff176791c6d227eea5f269743021a11c9cfaff90b0ad17072904d4cf9ef28280c755e0048373a54d9168092a1dee7fc9285f8184d58b10f9a93aa",
       "salt": "9e1a427392ddfc3d9613a39922e845e6",
       "createdAt": "2026-10-25T07:29:06.771Z"
+    },
+    {
+      "id": "usr_1792922255913_4781bb6a",
+      "fullName": "Farmer",
+      "email": "invalid-email",
+      "phone": "",
+      "passwordHash": "853f0c5429f7293f96026dd0016396218ae4960c1b26e042f27481dd2404e392595d0813982cfcc7efdecbfc5c4b12d015e82c9da7e5bd92ba5498bc32ba1342",
+      "salt": "bb4b3804707a24714f17a68507e06a21",
+      "createdAt": "2026-10-25T09:57:35.913Z"
+    },
+    {
+      "id": "usr_1792922255969_f00adfc9",
+      "fullName": "Suresh Patil",
+      "email": "test_farmer_1792922255916@farmsaathi.in",
+      "phone": "",
+      "passwordHash": "10e67f0e244332102d659577fc3e094275349c7d0a39bf6100db2b08218202fea9b237883497913b67abc8aced37e03e90866ef6c94de87e30dba0f6ba82b136",
+      "salt": "ad8b5174c19acbd7f584974d2bd53bd2",
+      "createdAt": "2026-10-25T09:57:35.969Z"
+    },
+    {
+      "id": "usr_1792922413841_602d981b",
+      "fullName": "Suresh Patil",
+      "email": "test_farmer_1792922413788@farmsaathi.in",
+      "phone": "",
+      "passwordHash": "7be3a0fc57eaeafd3a71b8670fabd1cf548bd8ac8f68652404c66f921933147addc8d9d81ba29a86baf70b41f3e4b084909cf33fbc5ea74ac61465a3cff495f8",
+      "salt": "602c4f554d9633dab9899d828761c024",
+      "createdAt": "2026-10-25T10:00:13.841Z"
     }
   ],
   "sessions": [
@@ -34,6 +61,31 @@
       "token": "fs_sess_7d604127bacb3acb19f42cc0654e21f86d558625f3ffcdc8",
       "userId": "user_demo",
       "expiresAt": "2026-11-24T06:50:32.648Z"
+    },
+    {
+      "token": "fs_sess_0102afe109de8b65794c2bcf2a9922144e9935ddd66f2a5c",
+      "userId": "usr_1792922255913_4781bb6a",
+      "expiresAt": "2026-11-24T09:57:35.917Z"
+    },
+    {
+      "token": "fs_sess_5fc0b35946424b3f629891a173764477089548b3192727fd",
+      "userId": "usr_1792922255969_f00adfc9",
+      "expiresAt": "2026-11-24T09:57:35.972Z"
+    },
+    {
+      "token": "fs_sess_2f56c4a95fbf4385248370a8c5fc70c8e5a8a8f346e68df6",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T09:57:36.030Z"
+    },
+    {
+      "token": "fs_sess_ae21ce65efe99ebb7ae85730fd0bee611674bba33f8e455d",
+      "userId": "usr_1792922413841_602d981b",
+      "expiresAt": "2026-11-24T10:00:13.845Z"
+    },
+    {
+      "token": "fs_sess_89bad1b3ef2ab29b9e0d17815e329210f0221723e3ea5a14",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T10:00:13.906Z"
     }
   ],
   "profiles": {
@@ -74,6 +126,60 @@
       "updatedAt": "2026-10-25T07:29:06.787Z",
       "full_name": "Anand Shinde",
       "main_crop": "Paddy & Soybean"
+    },
+    "usr_1792922255913_4781bb6a": {
+      "userId": "usr_1792922255913_4781bb6a",
+      "fullName": "Farmer",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T09:57:35.913Z"
+    },
+    "usr_1792922255969_f00adfc9": {
+      "userId": "usr_1792922255969_f00adfc9",
+      "fullName": "Suresh Patil",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T09:57:35.969Z"
+    },
+    "usr_1792922413841_602d981b": {
+      "userId": "usr_1792922413841_602d981b",
+      "fullName": "Suresh Patil",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T10:00:13.841Z"
     }
   },
   "crops": [

@@ -38,6 +38,8 @@ module.exports = async (req, res) => {
     weatherService: 'Open-Meteo REST API (Live Synced)',
     mandiService: process.env.DATA_GOV_IN_API_KEY ? 'Data.gov.in Live Mandi API' : 'Verified APMC Mandi Bulletins',
     cloudDatabase: 'Supabase (Configured client-side via project URL & anon key)',
+    supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
     stats: stats
   };
 

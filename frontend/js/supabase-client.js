@@ -126,11 +126,66 @@
     return (res.data && res.data.session) || null;
   }
 
+  async function getUser() {
+    var sb = getClient();
+    if (!sb) return null;
+    try {
+      var res = await sb.auth.getUser();
+      return (res.data && res.data.user) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function resetPasswordForEmail(email, redirectTo) {
+    var sb = getClient();
+    if (!sb) throw new Error('Supabase is not configured. Please add your Supabase URL and Anon Key in Settings.');
+
+    var targetUrl = redirectTo || (window.location.origin + '/reset-password.html');
+    var res = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: targetUrl
+    });
+    if (res.error) throw res.error;
+    return res.data;
+  }
+
+  async function updatePassword(newPassword) {
+    var sb = getClient();
+    if (!sb) throw new Error('Supabase is not configured.');
+
+    var res = await sb.auth.updateUser({
+      password: newPassword
+    });
+    if (res.error) throw res.error;
+    return res.data;
+  }
+
   function onAuthStateChange(callback) {
     var sb = getClient();
     if (!sb || !sb.auth) return null;
     return sb.auth.onAuthStateChange(callback);
   }
+
+  async function initFromApi() {
+    if (!isConfigured()) {
+      try {
+        var res = await fetch('/api/status');
+        if (res.ok) {
+          var data = await res.json();
+          if (data && data.supabaseUrl && data.supabaseAnonKey) {
+            setConfig(data.supabaseUrl, data.supabaseAnonKey);
+          }
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Auto-attempt backend status config
+  try {
+    if (typeof window !== 'undefined') {
+      initFromApi();
+    }
+  } catch (e) {}
 
   // ============================================================================
   // FARMER PROFILES (with fallback to public.farm_records)
@@ -524,7 +579,11 @@
     signIn: signIn,
     signOut: signOut,
     getSession: getSession,
+    getUser: getUser,
+    resetPasswordForEmail: resetPasswordForEmail,
+    updatePassword: updatePassword,
     onAuthStateChange: onAuthStateChange,
+    initFromApi: initFromApi,
     fetchProfile: fetchProfile,
     saveProfile: saveProfile,
     fetchCrops: fetchCrops,

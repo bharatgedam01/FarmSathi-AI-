@@ -115,17 +115,28 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 3. Serve static files with no-cache headers for instant code reload
+  // 3. Serve static files and clean page routes
   let safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
   if (safePath === '/' || safePath === '\\') safePath = '/frontend/index.html';
 
   let filePath = path.join(__dirname, safePath);
 
-  // Prioritize frontend directory for static assets (css, js, assets, index.html)
-  if (!fs.existsSync(filePath)) {
+  // Check clean routes without .html extension in frontend/
+  const cleanRouteMap = {
+    '/login': '/frontend/login.html',
+    '/register': '/frontend/register.html',
+    '/dashboard': '/frontend/dashboard.html',
+    '/reset-password': '/frontend/reset-password.html'
+  };
+
+  if (cleanRouteMap[pathname]) {
+    filePath = path.join(__dirname, cleanRouteMap[pathname]);
+  } else if (!fs.existsSync(filePath)) {
     const frontendAttempt = path.join(__dirname, 'frontend', safePath);
     if (fs.existsSync(frontendAttempt)) {
       filePath = frontendAttempt;
+    } else if (fs.existsSync(`${frontendAttempt}.html`)) {
+      filePath = `${frontendAttempt}.html`;
     }
   }
 

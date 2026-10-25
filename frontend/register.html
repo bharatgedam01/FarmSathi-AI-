@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#143e2c">
+  <title>Create Farmer Account — FarmSaathi AI</title>
+  <meta name="description" content="Register for FarmSaathi AI to access AI crop diagnosis, live mandi prices, and farm management.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+
+  <!-- MODULAR STYLESHEETS -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+
+  <!-- SUPABASE CLIENT & AUTH SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body class="landing-body">
+
+  <div class="auth-page-wrapper">
+    <!-- Brand Header -->
+    <div class="auth-brand-head">
+      <a href="/" class="brand" style="text-decoration: none; justify-content: center; margin-bottom: 8px;">
+        <div class="brand-logo">🌱</div>
+        <div style="text-align: left;">
+          <div class="brand-title">FarmSaathi <span>AI</span></div>
+          <div class="brand-sub">Smart Farmer Platform</div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Register Card -->
+    <div class="auth-card-panel">
+      <h1 class="auth-card-title">Create Farmer Account</h1>
+      <p class="auth-card-sub">
+        Sign up to save your farm plots, diagnose crop diseases, and get real-time mandi updates.
+      </p>
+
+      <form id="formRegister" class="fields-grid" novalidate onsubmit="handleRegistrationSubmit(event)">
+        <!-- Full Name -->
+        <label class="field full">
+          <span>Full Name <b style="color: var(--danger);">*</b></span>
+          <input class="input" id="regFullName" type="text" placeholder="e.g. Ramesh Patil" autocomplete="name" required>
+          <small id="regNameError" style="color: var(--danger); font-size: 11.5px; display: none;">Please enter your name.</small>
+        </label>
+
+        <!-- Email Address -->
+        <label class="field full">
+          <span>Email Address <b style="color: var(--danger);">*</b></span>
+          <input class="input" id="regEmail" type="email" placeholder="farmer@example.com" autocomplete="email" required>
+          <small id="regEmailError" style="color: var(--danger); font-size: 11.5px; display: none;">Please enter a valid email address.</small>
+        </label>
+
+        <!-- Password -->
+        <label class="field full">
+          <span>Create Password <b style="color: var(--danger);">*</b></span>
+          <div class="password-input-wrap">
+            <input class="input" id="regPassword" type="password" placeholder="At least 6 characters" minlength="6" autocomplete="new-password" required oninput="validatePasswordStrength()">
+            <button type="button" class="btn-toggle-eye" id="btnToggleRegPass" onclick="togglePasswordVisibility('regPassword', 'btnToggleRegPass')" aria-label="Toggle password visibility">👁️</button>
+          </div>
+          <div id="regPassRules" style="font-size: 11.5px; color: var(--muted); margin-top: 4px;">
+            Password must be at least 6 characters.
+          </div>
+        </label>
+
+        <!-- Confirm Password -->
+        <label class="field full">
+          <span>Confirm Password <b style="color: var(--danger);">*</b></span>
+          <div class="password-input-wrap">
+            <input class="input" id="regConfirmPassword" type="password" placeholder="Re-enter password" minlength="6" autocomplete="new-password" required oninput="validatePasswordMatch()">
+            <button type="button" class="btn-toggle-eye" id="btnToggleRegConfirmPass" onclick="togglePasswordVisibility('regConfirmPassword', 'btnToggleRegConfirmPass')" aria-label="Toggle confirm password visibility">👁️</button>
+          </div>
+          <small id="regConfirmError" style="color: var(--danger); font-size: 11.5px; display: none;">Passwords do not match.</small>
+        </label>
+
+        <!-- Submit Button -->
+        <div class="field full" style="margin-top: 10px;">
+          <button type="submit" class="btn btn-primary" id="btnSubmitRegister" style="width: 100%; padding: 12px; font-size: 14.5px;">
+            Create Farmer Account
+          </button>
+        </div>
+      </form>
+
+      <!-- Status Feedback Box -->
+      <div id="regStatusMsg" class="status-msg"></div>
+
+      <!-- Links to Login and Home -->
+      <div class="auth-divider">OR</div>
+
+      <div class="auth-footer-nav">
+        Already have a farmer account? <a href="login.html" id="linkToLogin">Log In here</a>
+      </div>
+
+      <div style="margin-top: 14px; text-align: center; font-size: 12.5px;">
+        <a href="/" style="color: var(--muted); text-decoration: none;">← Back to FarmSaathi Home</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 1. Password Visibility Toggle
+    function togglePasswordVisibility(inputId, btnId) {
+      var input = document.getElementById(inputId);
+      var btn = document.getElementById(btnId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (btn) btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        if (btn) btn.textContent = '👁️';
+      }
+    }
+
+    // 2. Real-time validation
+    function validatePasswordStrength() {
+      var pass = (document.getElementById('regPassword') && document.getElementById('regPassword').value) || '';
+      var rules = document.getElementById('regPassRules');
+      if (!rules) return;
+      if (pass.length >= 6) {
+        rules.style.color = 'var(--success)';
+        rules.textContent = '✓ Password length is good (' + pass.length + ' chars)';
+      } else {
+        rules.style.color = 'var(--muted)';
+        rules.textContent = 'Password must be at least 6 characters.';
+      }
+      validatePasswordMatch();
+    }
+
+    function validatePasswordMatch() {
+      var pass = (document.getElementById('regPassword') && document.getElementById('regPassword').value) || '';
+      var confirm = (document.getElementById('regConfirmPassword') && document.getElementById('regConfirmPassword').value) || '';
+      var err = document.getElementById('regConfirmError');
+      if (!err) return;
+      if (confirm && pass !== confirm) {
+        err.style.display = 'block';
+        err.textContent = 'Passwords do not match.';
+      } else {
+        err.style.display = 'none';
+      }
+    }
+
+    // 3. Form Submission
+    async function handleRegistrationSubmit(e) {
+      e.preventDefault();
+
+      var fullName = (document.getElementById('regFullName') && document.getElementById('regFullName').value.trim()) || '';
+      var email = (document.getElementById('regEmail') && document.getElementById('regEmail').value.trim()) || '';
+      var password = (document.getElementById('regPassword') && document.getElementById('regPassword').value) || '';
+      var confirm = (document.getElementById('regConfirmPassword') && document.getElementById('regConfirmPassword').value) || '';
+
+      var statusMsg = document.getElementById('regStatusMsg');
+      var btnSubmit = document.getElementById('btnSubmitRegister');
+
+      // Validation
+      var hasError = false;
+      var nameErr = document.getElementById('regNameError');
+      var emailErr = document.getElementById('regEmailError');
+      var confirmErr = document.getElementById('regConfirmError');
+
+      if (!fullName) {
+        if (nameErr) { nameErr.style.display = 'block'; }
+        hasError = true;
+      } else if (nameErr) {
+        nameErr.style.display = 'none';
+      }
+
+      var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        if (emailErr) { emailErr.style.display = 'block'; }
+        hasError = true;
+      } else if (emailErr) {
+        emailErr.style.display = 'none';
+      }
+
+      if (!password || password.length < 6) {
+        if (statusMsg) {
+          statusMsg.className = 'status-msg show err';
+          statusMsg.textContent = 'Password must be at least 6 characters long.';
+        }
+        return;
+      }
+
+      if (password !== confirm) {
+        if (confirmErr) { confirmErr.style.display = 'block'; }
+        return;
+      } else if (confirmErr) {
+        confirmErr.style.display = 'none';
+      }
+
+      if (hasError) return;
+
+      // Loading state
+      if (btnSubmit) {
+        btnSubmit.classList.add('btn-submit-loading');
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Registering Account…';
+      }
+
+      if (statusMsg) {
+        statusMsg.className = 'status-msg show';
+        statusMsg.textContent = 'Creating your account with Supabase Auth…';
+      }
+
+      try {
+        var result = await window.AuthModule.signUpUser(fullName, email, password);
+
+        if (result && result.needsConfirmation) {
+          // Email confirmation is required by Supabase settings
+          if (statusMsg) {
+            statusMsg.className = 'status-msg show ok';
+            statusMsg.innerHTML = '<b>Registration Successful! ✉️</b><br>We have sent a verification link to <b>' + email + '</b>.<br>Please check your email and click the confirmation link to activate your account, then log in.';
+          }
+          if (btnSubmit) {
+            btnSubmit.classList.remove('btn-submit-loading');
+            btnSubmit.disabled = false;
+            btnSubmit.textContent = 'Account Created ✓';
+          }
+        } else {
+          // Direct login or session ready
+          if (statusMsg) {
+            statusMsg.className = 'status-msg show ok';
+            statusMsg.innerHTML = '<b>Welcome to FarmSaathi AI, ' + fullName + '! 🌱</b><br>Your account has been registered successfully. Loading your dashboard…';
+          }
+          setTimeout(function() {
+            window.location.href = 'dashboard.html';
+          }, 1200);
+        }
+      } catch (err) {
+        console.error('Registration failed:', err);
+        if (statusMsg) {
+          statusMsg.className = 'status-msg show err';
+          statusMsg.textContent = err.message || 'Registration failed. Please check your details and try again.';
+        }
+        if (btnSubmit) {
+          btnSubmit.classList.remove('btn-submit-loading');
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = 'Create Farmer Account';
+        }
+      }
+    }
+
+    // 4. If already authenticated, redirect to dashboard
+    (async function checkExistingSession() {
+      try {
+        var sb = window.SupabaseClient;
+        if (sb && typeof sb.initFromApi === 'function') {
+          await sb.initFromApi();
+        }
+        if (sb && sb.isConfigured()) {
+          var session = await sb.getSession();
+          if (session && session.user) {
+            window.location.replace('dashboard.html');
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

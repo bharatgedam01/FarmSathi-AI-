@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#143e2c">
+  <title>FarmSaathi AI — Smart Farmer Assistance Platform</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+  
+  <!-- MODULAR STYLESHEETS -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/responsive.css">
+  
+  <!-- SUPABASE JS CLIENT LIBRARY -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+
+  <!-- AUTH GUARD: PROTECT DASHBOARD FROM UNAUTHENTICATED ACCESS -->
+  <style>
+    #authGuardOverlay {
+      position: fixed;
+      inset: 0;
+      background: #f4f7ef;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      transition: opacity 0.25s ease;
+    }
+    .auth-guard-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #d1e2d6;
+      border-top-color: #1f6b45;
+      border-radius: 50%;
+      animation: guardSpin 0.75s linear infinite;
+      margin-bottom: 16px;
+    }
+    @keyframes guardSpin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+  <script>
+    (async function verifyDashboardSession() {
+      try {
+        var sb = window.SupabaseClient;
+        if (sb && typeof sb.initFromApi === 'function') {
+          await sb.initFromApi();
+        }
+
+        var session = null;
+        if (sb && sb.isConfigured()) {
+          session = await sb.getSession();
+        }
+
+        var localUser = null;
+        try {
+          localUser = JSON.parse(localStorage.getItem('fs_current_user') || 'null');
+        } catch (e) {}
+        var authToken = localStorage.getItem('fs_auth_token');
+
+        if (!session && !localUser && !authToken) {
+          // Unauthenticated -> redirect to login
+          window.location.replace('/login.html?redirect=dashboard.html');
+          return;
+        }
+
+        // Authenticated -> smoothly dismiss overlay
+        window.addEventListener('DOMContentLoaded', function() {
+          var ov = document.getElementById('authGuardOverlay');
+          if (ov) {
+            ov.style.opacity = '0';
+            setTimeout(function() { if (ov && ov.parentNode) ov.parentNode.removeChild(ov); }, 250);
+          }
+        });
+      } catch (err) {
+        console.warn('Dashboard guard check:', err);
+        var ov = document.getElementById('authGuardOverlay');
+        if (ov) ov.remove();
+      }
+    })();
+  </script>
+</head>
+<body>
+
+<div id="authGuardOverlay">
+  <div class="auth-guard-spinner"></div>
+  <div style="font-weight: 850; color: #143e2c; font-size: 19px; margin-bottom: 4px;">🌱 FarmSaathi AI</div>
+  <div style="font-size: 13.5px; color: #627367;">Verifying secure farmer session…</div>
+</div>
+
+<div class="app-shell">
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">🌱</div>
+      <div>
+        <div class="brand-title">FarmSaathi <span>AI</span></div>
+        <div class="brand-sub">Smart Farmer Platform</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="nav-label" id="lblNavWorkspace">Farmer Workspace</div>
+      <nav class="nav-list" id="sidebarNav">
+        <button type="button" class="nav-btn active" data-page="dashboard" onclick="navigateTo('dashboard')">
+          <span class="icon">🏡</span><span class="nav-text" id="navDashText">Dashboard</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="profile" onclick="navigateTo('profile')">
+          <span class="icon">👨‍🌾</span><span class="nav-text" id="navProfText">Farmer Profile</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="crops" onclick="navigateTo('crops')">
+          <span class="icon">🌾</span><span class="nav-text" id="navCropsText">My Farms & Crops</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="assistant" onclick="navigateTo('assistant')">
+          <span class="icon">🤖</span><span class="nav-text" id="navAiText">Ask FarmSaathi AI</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="intelligence" onclick="navigateTo('intelligence')">
+          <span class="icon">📷</span><span class="nav-text" id="navVisionText">Farm Intelligence</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="weather" onclick="navigateTo('weather')">
+          <span class="icon">🌦️</span><span class="nav-text" id="navWeatherText">Weather & Alerts</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="market" onclick="navigateTo('market')">
+          <span class="icon">📈</span><span class="nav-text" id="navMarketText">Mandi Prices</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="activities" onclick="navigateTo('activities')">
+          <span class="icon">🗓️</span><span class="nav-text" id="navActText">Farm Activities</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="history" onclick="navigateTo('history')">
+          <span class="icon">📚</span><span class="nav-text" id="navHistText">Analysis History</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="help" onclick="navigateTo('help')">
+          <span class="icon">ℹ️</span><span class="nav-text" id="navHelpText">Help & Helplines</span>
+        </button>
+        <button type="button" class="nav-btn" data-page="settings" onclick="navigateTo('settings')">
+          <span class="icon">⚙️</span><span class="nav-text" id="navSettingsText">Settings</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="sidebar-footer">
+      <b>🌱 Farmer-First Advisory</b><br>
+      Always verify chemical treatments with your local Krishi Vigyan Kendra (KVK).
+    </div>
+  </aside>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main>
+    <!-- TOP HEADER -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="eyebrow" id="headerEyebrow">FARMER WORKSPACE / OVERVIEW</div>
+        <h1 id="pageGreeting">Good day, Farmer 👋</h1>
+        <div class="account-pill">
+          <span class="account-dot" id="accountDot"></span>
+          <span id="accountLabel">Local Demo Mode · Data saved on this device</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <select class="input" id="langSelector" onchange="applyLanguage(this.value)" style="width: auto; padding: 8px 12px;" aria-label="Select interface language">
+          <option value="en">English (English)</option>
+          <option value="hi">हिन्दी (Hindi)</option>
+          <option value="mr">मराठी (Marathi)</option>
+        </select>
+        <div class="user-profile-badge" id="topUserBadge" style="display: flex; align-items: center; gap: 8px; background: #eaf3e5; padding: 5px 12px; border-radius: 99px; border: 1px solid #d6e8d2;">
+          <span style="font-size: 14px;">👨‍🌾</span>
+          <span id="topUserName" style="font-size: 12.5px; font-weight: 750; color: var(--deep); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Farmer</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="btnTopLogout" onclick="handleLogout()" title="Log out securely">🚪 Log Out</button>
+      </div>
+    </header>
+
+    <!-- ========================================================================= -->
+    <!-- 1. DASHBOARD PAGE -->
+    <!-- ========================================================================= -->
+    <section class="page-section active" id="page-dashboard" style="display: block;">
+      <div class="hero-banner">
+        <div>
+          <span class="hero-pill" id="heroPill">✦ AI-POWERED FARMING SUPPORT</span>
+          <h2 id="heroTitle">Smarter decisions.<br>Healthier harvests.</h2>
+          <p id="heroDesc">Manage your farm plots, track weather, check verified mandi rates, and diagnose crop health in English, Hindi, and Marathi.</p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-lime" onclick="navigateTo('intelligence')" id="heroBtnDiagnose">📷 Check Crop Health</button>
+            <button type="button" class="btn btn-secondary" onclick="navigateTo('profile')" style="color: white; border-color: #3b7454; background: #1c5237;" id="heroBtnProfile">👨‍🌾 Setup Profile</button>
+          </div>
+        </div>
+        <div class="hero-art">🌱🌾</div>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="grid-4" style="margin-bottom: 20px;">
+        <div class="stat-card">
+          <div class="stat-card-top"><span id="lblStatCrops">Active Crops</span><div class="stat-card-icon">🌾</div></div>
+          <div class="stat-card-val" id="statCropsCount">0</div>
+          <div class="stat-card-foot" id="statCropsFoot">Saved farm crops</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top"><span id="lblStatWeather">Live Weather</span><div class="stat-card-icon">🌤️</div></div>
+          <div class="stat-card-val" id="statTemp">28°C</div>
+          <div class="stat-card-foot" id="statWeatherFoot">Open-Meteo Real Data</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top"><span id="lblStatScans">Crop Scans</span><div class="stat-card-icon">📷</div></div>
+          <div class="stat-card-val" id="statScansCount">0</div>
+          <div class="stat-card-foot" id="statScansFoot">Analysis reports</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top"><span id="lblStatActivities">Reminders</span><div class="stat-card-icon">🗓️</div></div>
+          <div class="stat-card-val" id="statActivitiesCount">0</div>
+          <div class="stat-card-foot" id="statActivitiesFoot">Pending farm tasks</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Weather Preview Card -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 id="dashWeatherTitle">🌦️ Local Weather</h3>
+              <p id="dashWeatherDesc">Real-time Open-Meteo temperature and rain forecast.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="navigateTo('weather')" id="btnDashWeatherMore">Full Forecast →</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <input class="input" id="quickWeatherInput" placeholder="Village or district (e.g. Gadchiroli)">
+            <button class="btn btn-primary" id="btnQuickWeather" onclick="quickCheckWeather()" type="button">Check</button>
+          </div>
+          <div id="quickWeatherResult" style="margin-top: 14px;">
+            <div class="badge badge-ok">Ready to lookup</div>
+          </div>
+        </div>
+
+        <!-- Quick AI Consultation Card -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 id="dashAiTitle">🤖 Ask FarmSaathi AI</h3>
+              <p id="dashAiDesc">Ask farming questions in your preferred language.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="navigateTo('assistant')" id="btnDashAiMore">Open Assistant →</button>
+          </div>
+          <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;" id="dashAiPrompt">Quick farming questions:</p>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button type="button" class="btn btn-secondary quick-chip" onclick="askQuickQuestion('How should I manage fertilizer for soybean in vegetative stage?')" style="justify-content: flex-start; text-align: left;">🌱 Soybean fertilizer guidance</button>
+            <button type="button" class="btn btn-secondary quick-chip" onclick="askQuickQuestion('What are the early symptoms of pink bollworm in cotton?')" style="justify-content: flex-start; text-align: left;">🐛 Cotton pest management</button>
+            <button type="button" class="btn btn-secondary quick-chip" onclick="askQuickQuestion('How do I calculate drip irrigation timing based on soil type?')" style="justify-content: flex-start; text-align: left;">💧 Drip irrigation calculation</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 2. FARMER PROFILE PAGE -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-profile">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="profileTitle">👨‍🌾 Farmer Profile</h2>
+            <p id="profileSub">Save your farm details so agricultural advice and irrigation tips are tailored specifically to your land.</p>
+          </div>
+          <span class="badge" id="badgeProfileSync">Local Mode</span>
+        </div>
+
+        <form id="formProfile" class="fields-grid" onsubmit="handleProfileSubmit(event)">
+          <label class="field">
+            <span id="lblFullName">Full Name *</span>
+            <input class="input" id="profFullName" name="full_name" placeholder="e.g. Ramesh Patil" required>
+          </label>
+          <label class="field">
+            <span id="lblPhone">Phone Number (Optional)</span>
+            <input class="input" id="profPhone" name="phone" type="tel" placeholder="e.g. +91 9876543210">
+          </label>
+          <label class="field">
+            <span id="lblVillage">Village / Town *</span>
+            <input class="input" id="profVillage" name="village" placeholder="e.g. Chamorshi" required>
+          </label>
+          <label class="field">
+            <span id="lblDistrict">District *</span>
+            <input class="input" id="profDistrict" name="district" placeholder="e.g. Gadchiroli" required>
+          </label>
+          <label class="field">
+            <span id="lblState">State</span>
+            <select class="input" id="profState" name="state">
+              <option value="Maharashtra">Maharashtra</option>
+              <option value="Madhya Pradesh">Madhya Pradesh</option>
+              <option value="Gujarat">Gujarat</option>
+              <option value="Karnataka">Karnataka</option>
+              <option value="Telangana">Telangana</option>
+              <option value="Andhra Pradesh">Andhra Pradesh</option>
+              <option value="Punjab">Punjab</option>
+              <option value="Haryana">Haryana</option>
+              <option value="Rajasthan">Rajasthan</option>
+              <option value="Uttar Pradesh">Uttar Pradesh</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label class="field">
+            <span id="lblPreferredLang">Preferred Language</span>
+            <select class="input" id="profLanguage" name="preferred_language">
+              <option value="en">English</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+              <option value="mr">मराठी (Marathi)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span id="lblFarmArea">Farm Area</span>
+            <input class="input" id="profFarmArea" name="farm_area" type="number" step="0.1" min="0" placeholder="e.g. 3.5">
+          </label>
+          <label class="field">
+            <span id="lblAreaUnit">Area Unit</span>
+            <select class="input" id="profAreaUnit" name="area_unit">
+              <option value="acres">Acres (एकर)</option>
+              <option value="hectares">Hectares (हेक्टर)</option>
+              <option value="bigha">Bigha (बीघा)</option>
+              <option value="guntha">Guntha (गुंठा)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span id="lblSoilType">Soil Type</span>
+            <select class="input" id="profSoilType" name="soil_type">
+              <option value="">Select if known</option>
+              <option value="Black Cotton Soil">Black Cotton Soil (काळी माती)</option>
+              <option value="Red Soil">Red Soil (तांबडी माती)</option>
+              <option value="Alluvial Soil">Alluvial Soil (गाळाची माती)</option>
+              <option value="Sandy Loam">Sandy Loam (वाळूमिश्रित)</option>
+              <option value="Clay Soil">Clay Soil (चिकण माती)</option>
+              <option value="Laterite Soil">Laterite Soil (जांभी माती)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span id="lblIrrigationMethod">Irrigation Method</span>
+            <select class="input" id="profIrrigation" name="irrigation_method">
+              <option value="">Select method</option>
+              <option value="Drip Irrigation">Drip Irrigation (ठिबक)</option>
+              <option value="Sprinkler">Sprinkler (तुषार)</option>
+              <option value="Borewell / Well">Borewell / Open Well (विहीर / बोअरवेल)</option>
+              <option value="Canal">Canal (कालवा)</option>
+              <option value="Rain-fed">Rain-fed (कोरडवाहू / पावसावर आधारित)</option>
+              <option value="Flood Irrigation">Flood Irrigation (पाट पाणी)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span id="lblMainCrop">Main Crop(s) *</span>
+            <input class="input" id="profMainCrop" name="main_crop" placeholder="e.g. Soybean, Cotton, Paddy" required>
+          </label>
+          <label class="field">
+            <span id="lblSeason">Growing Season</span>
+            <select class="input" id="profSeason" name="season">
+              <option value="Kharif">Kharif (खरीप - पावसाळी)</option>
+              <option value="Rabi">Rabi (रब्बी - हिवाळी)</option>
+              <option value="Summer">Summer / Zaid (उन्हाळी)</option>
+              <option value="Year-round">Year-round (बारमाही)</option>
+            </select>
+          </label>
+          <div class="field full" style="display: flex; gap: 10px; align-items: center;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnDetectGps" onclick="detectFarmGps()">📍 Detect Farm GPS Coordinates (Consent required)</button>
+            <span id="gpsCoordsText" style="font-size: 11px; color: var(--muted);"></span>
+          </div>
+
+          <div class="field full" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;">
+            <button type="submit" class="btn btn-primary" id="btnSaveProfile">💾 Save Profile</button>
+            <button type="button" class="btn btn-secondary" id="btnReloadProfile" onclick="loadProfileForm()">🔄 Reload</button>
+            <button type="button" class="btn btn-danger" id="btnDeleteProfile" onclick="deleteProfileData()">🗑️ Delete Profile</button>
+          </div>
+        </form>
+
+        <div id="profileStatusMsg" class="status-msg"></div>
+
+        <div class="notice-box" id="profilePrivacyNotice">
+          🔒 <b>Privacy Notice:</b> FarmSaathi AI only collects information necessary to assist with agricultural practices. Your data is isolated to your private account and never sold.
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 3. MY CROPS & FARMS PAGE -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-crops">
+      <div class="grid-2">
+        <!-- Add Crop Form -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="cropsTitle">🌾 Add Crop Record</h2>
+              <p id="cropsSub">Log crop sowing dates and track growth stages.</p>
+            </div>
+          </div>
+          <form id="formAddCrop" class="fields-grid" onsubmit="handleAddCropSubmit(event)">
+            <label class="field">
+              <span id="lblCropName">Crop Name *</span>
+              <input class="input" id="cropName" placeholder="e.g. Soybean" required>
+            </label>
+            <label class="field">
+              <span id="lblCropVariety">Variety</span>
+              <input class="input" id="cropVariety" placeholder="e.g. JS-335 / Phule Kalyani">
+            </label>
+            <label class="field">
+              <span id="lblCropPlot">Field / Plot Name</span>
+              <input class="input" id="cropPlot" placeholder="e.g. North Plot">
+            </label>
+            <label class="field">
+              <span id="lblSowingDate">Sowing Date *</span>
+              <input class="input" id="cropSowingDate" type="date" required>
+            </label>
+            <label class="field">
+              <span id="lblGrowthStage">Growth Stage</span>
+              <select class="input" id="cropStage">
+                <option value="Sowing">Sowing (पेरणी)</option>
+                <option value="Germination">Germination (उगवण)</option>
+                <option value="Vegetative">Vegetative (शाकीय वाढ)</option>
+                <option value="Flowering">Flowering (फुलोरा)</option>
+                <option value="Pod/Fruit Formation">Pod / Fruit Formation (दाणे भरणे)</option>
+                <option value="Maturation">Maturation (पक्वता)</option>
+                <option value="Harvesting">Harvesting (कापणी)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span id="lblCropArea">Area under Crop (Acres)</span>
+              <input class="input" id="cropArea" type="number" step="0.1" placeholder="e.g. 2.0">
+            </label>
+            <label class="field full">
+              <span id="lblCropNotes">Notes / Soil Treatment</span>
+              <textarea class="input" id="cropNotes" rows="2" placeholder="e.g. Trichoderma seed treatment done before sowing."></textarea>
+            </label>
+            <div class="field full">
+              <button type="submit" class="btn btn-primary" id="btnAddCrop">➕ Save Crop</button>
+            </div>
+          </form>
+          <div id="cropStatusMsg" class="status-msg"></div>
+        </div>
+
+        <!-- Crops List -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 id="savedCropsTitle">Active Farm Crops</h3>
+              <p id="savedCropsSub">Your active fields and their current growth stages.</p>
+            </div>
+          </div>
+          <div id="cropsList" class="item-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 4. ASK FARMSAATHI AI (CHAT ASSISTANT) -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-assistant">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="aiChatTitle">🤖 Ask FarmSaathi AI</h2>
+            <p id="aiChatSub">Ask questions in English, Hindi, or Marathi. Practical, safety-focused advice using your saved farm context.</p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="badge" id="aiStatusBadge">Checking service…</span>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnNewChat" onclick="resetChat()">✨ New Chat</button>
+          </div>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-bubble assistant" id="chatWelcomeMessage">
+              Namaste! 🙏 I am FarmSaathi AI, your farming assistant.
+              You can ask me questions about crop cultivation, irrigation scheduling, fertilizer doses, disease symptoms, or weather precautions in English, Hindi, or Marathi.
+              
+              💡 <b>Tip:</b> If asking about an issue, please mention your crop, stage, and visible symptoms for the best guidance.
+            </div>
+          </div>
+
+          <!-- Suggested quick questions -->
+          <div style="padding: 8px 14px; background: #f7faf4; border-top: 1px solid var(--line); display: flex; gap: 8px; overflow-x: auto;">
+            <button type="button" class="btn btn-secondary btn-sm quick-chip" onclick="askQuickQuestion('What are the best irrigation practices during the flowering stage?')">💧 Flowering Irrigation</button>
+            <button type="button" class="btn btn-secondary btn-sm quick-chip" onclick="askQuickQuestion('My crop leaves show yellow spots with dark rings. What should I check?')">🍃 Leaf Spots Triage</button>
+            <button type="button" class="btn btn-secondary btn-sm quick-chip" onclick="askQuickQuestion('पिकांना सेंद्रिय खत देण्याची योग्य पद्धत कोणती?')">🌾 सेंद्रिय खत (मराठी)</button>
+            <button type="button" class="btn btn-secondary btn-sm quick-chip" onclick="askQuickQuestion('फसल में कीट नियंत्रण के लिए सुरक्षित जैविक उपाय क्या हैं?')">🌱 जैविक कीट नियंत्रण (हिंदी)</button>
+          </div>
+
+          <form id="formChat" class="chat-input-bar" onsubmit="handleChatSubmit(event)">
+            <textarea id="chatInputText" class="input" placeholder="Type your farming question here…" rows="1" required></textarea>
+            <button type="submit" class="btn btn-primary" id="btnChatSend">Send ➤</button>
+          </form>
+        </div>
+
+        <div id="chatStatusMsg" class="status-msg"></div>
+
+        <div class="notice-box" id="aiDisclaimerBox">
+          ⚠️ <b>Agricultural Safety Disclaimer:</b> FarmSaathi AI provides general agricultural guidance. For high-risk chemical spraying or uncertain plant diagnoses, always consult a qualified agronomist or your local Krishi Vigyan Kendra (KVK).
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 5. FARM INTELLIGENCE (CROP PHOTO ANALYSIS) -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-intelligence">
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="visionTitle">📷 Crop Health Scanner</h2>
+              <p id="visionSub">Upload a clear leaf or crop photo to analyze visible symptoms and receive triage advice.</p>
+            </div>
+            <span class="badge" id="visionModeBadge">AI Vision Ready</span>
+          </div>
+
+          <!-- Upload Dropzone -->
+          <form id="formVision" onsubmit="handleVisionSubmit(event)">
+            <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInputCrop').click()">
+              <div class="upload-icon">📸</div>
+              <strong id="dropZoneTitle">Select or take a crop photo</strong><br>
+              <small style="color: var(--muted);" id="dropZoneSub">Supports JPG, PNG, WEBP (Max 8 MB)</small>
+              <div style="margin-top: 14px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <label class="btn btn-secondary btn-sm" for="fileInputCrop" onclick="event.stopPropagation()" style="cursor: pointer;">📁 Browse File</label>
+                <label class="btn btn-primary btn-sm" for="cameraInputCrop" onclick="event.stopPropagation()" style="cursor: pointer;">📷 Open Camera</label>
+              </div>
+            </div>
+
+            <!-- Hidden Inputs -->
+            <input type="file" id="fileInputCrop" accept="image/jpeg,image/png,image/webp" onchange="handleFileSelect(this.files[0])" style="display: none;">
+            <input type="file" id="cameraInputCrop" accept="image/jpeg,image/png,image/webp" capture="environment" onchange="handleFileSelect(this.files[0])" style="display: none;">
+
+            <!-- Preview -->
+            <div id="previewContainer" style="display: none; text-align: center;">
+              <img id="imgPreview" class="image-preview-img" alt="Crop preview">
+              <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px;">
+                <button type="button" class="btn btn-danger btn-sm" id="btnRemovePhoto" onclick="removePhoto()">🗑️ Remove Photo</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btnChangePhoto" onclick="document.getElementById('fileInputCrop').click()">🔄 Replace Photo</button>
+              </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <label class="field" style="margin-bottom: 12px;">
+                <span id="lblVisionCropName">Crop Name (Optional context for model)</span>
+                <input class="input" id="visionCropHint" placeholder="e.g. Soybean, Cotton, Tomato">
+              </label>
+              
+              <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <button type="submit" class="btn btn-primary" id="btnRunAnalysis" disabled>🔬 Analyze Photo</button>
+                <button type="button" class="btn btn-secondary" id="btnDemoAnalysis" onclick="runDemoAnalysis()">🧪 Test with Demo Triage</button>
+              </div>
+            </div>
+          </form>
+
+          <div id="visionStatusMsg" class="status-msg"></div>
+
+          <div class="notice-box" id="visionNotice">
+            🛡️ <b>Triage Notice:</b> AI vision provides triage advice based on visible symptoms. It is not a lab culture diagnosis. Always verify with your local KVK before buying agrochemicals.
+          </div>
+        </div>
+
+        <!-- Analysis Report Panel -->
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 id="reportTitle">Analysis Report</h3>
+              <p id="reportSub">Your structured disease and crop care recommendations.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnSaveAnalysisReport" onclick="saveCurrentAnalysis()" disabled>💾 Save Report</button>
+          </div>
+
+          <div class="report-card" id="reportContentArea">
+            <span style="color: var(--muted);" id="reportPlaceholder">
+              Upload a clear photo and click "Analyze Photo" or "Test with Demo Triage" to generate a plant health report.
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 6. WEATHER DASHBOARD -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-weather">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="weatherPageTitle">🌦️ Weather & Agricultural Advisories</h2>
+            <p id="weatherPageSub">Live conditions from Open-Meteo with 5-day rain and spray advisories.</p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnWeatherGps" onclick="getWeatherByGps()">📍 Use GPS Location</button>
+        </div>
+
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;">
+          <form id="formWeatherSearch" onsubmit="handleWeatherSearch(event)" style="display: flex; gap: 8px; flex: 1; min-width: 260px;">
+            <input class="input" id="weatherSearchLocation" placeholder="Enter city, district or village across India…" required>
+            <button type="submit" class="btn btn-primary" id="btnWeatherSearch">Search</button>
+          </form>
+          <select class="input" id="weatherQuickCity" onchange="if(this.value){$('weatherSearchLocation').value=this.value;fetchWeather(this.value);}" style="width: auto; min-width: 230px;" aria-label="Quick Select City or District">
+            <option value="">⚡ Quick City / District</option>
+            <optgroup label="Maharashtra">
+              <option value="Gadchiroli">Gadchiroli (गडचिरोली)</option>
+              <option value="Nagpur">Nagpur (नागपूर)</option>
+              <option value="Nashik">Nashik (नाशिक)</option>
+              <option value="Pune">Pune (पुणे)</option>
+              <option value="Amravati">Amravati (अमरावती)</option>
+              <option value="Chandrapur">Chandrapur (चंद्रपूर)</option>
+              <option value="Chhatrapati Sambhajinagar">Chhatrapati Sambhajinagar (औरंगाबाद)</option>
+              <option value="Kolhapur">Kolhapur (कोल्हापूर)</option>
+              <option value="Solapur">Solapur (सोलापूर)</option>
+              <option value="Jalgaon">Jalgaon (जळगाव)</option>
+              <option value="Akola">Akola (अकोला)</option>
+              <option value="Latur">Latur (लातूर)</option>
+            </optgroup>
+            <optgroup label="Madhya Pradesh">
+              <option value="Indore">Indore (इंदौर)</option>
+              <option value="Ujjain">Ujjain (उज्जैन)</option>
+              <option value="Bhopal">Bhopal (भोपाल)</option>
+              <option value="Jabalpur">Jabalpur (जबलपुर)</option>
+              <option value="Gwalior">Gwalior (ग्वालियर)</option>
+            </optgroup>
+            <optgroup label="Gujarat">
+              <option value="Rajkot">Rajkot (રાજકોટ)</option>
+              <option value="Surat">Surat (સુરત)</option>
+              <option value="Ahmedabad">Ahmedabad (અમદાવાદ)</option>
+              <option value="Vadodara">Vadodara (વડોદરા)</option>
+            </optgroup>
+            <optgroup label="Punjab & Haryana">
+              <option value="Ludhiana">Ludhiana (ਲੁਧਿਆਣਾ)</option>
+              <option value="Amritsar">Amritsar (ਅੰਮ੍ਰਿਤਸਰ)</option>
+              <option value="Bathinda">Bathinda (ਬਠਿੰਡਾ)</option>
+              <option value="Karnal">Karnal (करनाल)</option>
+              <option value="Hisar">Hisar (हिसार)</option>
+              <option value="Kurukshetra">Kurukshetra (कुरुक्षेत्र)</option>
+            </optgroup>
+            <optgroup label="Rajasthan">
+              <option value="Jaipur">Jaipur (जयपुर)</option>
+              <option value="Kota">Kota (कोटा)</option>
+              <option value="Jodhpur">Jodhpur (जोधपुर)</option>
+              <option value="Bikaner">Bikaner (बीकानेर)</option>
+              <option value="Sri Ganganagar">Sri Ganganagar (श्रीगंगानगर)</option>
+            </optgroup>
+            <optgroup label="Uttar Pradesh & Bihar">
+              <option value="Lucknow">Lucknow (लखनऊ)</option>
+              <option value="Kanpur">Kanpur (कानपुर)</option>
+              <option value="Varanasi">Varanasi (वाराणसी)</option>
+              <option value="Agra">Agra (आगरा)</option>
+              <option value="Patna">Patna (पटना)</option>
+              <option value="Muzaffarpur">Muzaffarpur (मुजफ्फरपुर)</option>
+            </optgroup>
+            <optgroup label="South India">
+              <option value="Guntur">Guntur (గుంటూరు)</option>
+              <option value="Vijayawada">Vijayawada (విజయవాడ)</option>
+              <option value="Warangal">Warangal (వరంగల్)</option>
+              <option value="Hyderabad">Hyderabad (హైదరాబాద్)</option>
+              <option value="Bengaluru">Bengaluru (ಬೆಂಗಳೂರು)</option>
+              <option value="Hubballi">Hubballi (ಹುಬ್ಬಳ್ಳಿ)</option>
+              <option value="Chennai">Chennai (சென்னை)</option>
+              <option value="Coimbatore">Coimbatore (கோயம்புத்தூர்)</option>
+              <option value="Kochi">Kochi (കൊച്ചി)</option>
+            </optgroup>
+            <optgroup label="East & Central India">
+              <option value="Kolkata">Kolkata (কলকাতা)</option>
+              <option value="Burdwan">Burdwan (বর্ধমান)</option>
+              <option value="Bhubaneswar">Bhubaneswar (ଭୁବନେଶ୍ୱର)</option>
+              <option value="Raipur">Raipur (रायपुर)</option>
+              <option value="Ranchi">Ranchi (राँची)</option>
+              <option value="Guwahati">Guwahati (গুৱাহাটী)</option>
+              <option value="Delhi">Delhi (दिल्ली)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div id="weatherStatusMsg" class="status-msg"></div>
+
+        <div id="weatherContentArea">
+          <div style="background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px;">
+            <div class="weather-current">
+              <div>
+                <span class="badge badge-ok" id="weatherBadgeState">Live Data</span>
+                <div class="weather-temp-big" id="wTemp">--°C</div>
+                <div style="font-size: 14px; font-weight: 700; margin-top: 4px;" id="wLocation">Search for your village or district</div>
+                <div style="font-size: 12px; color: var(--muted);" id="wCondition">--</div>
+              </div>
+              <div class="weather-icon-big" id="wIcon">🌤️</div>
+            </div>
+
+            <div class="weather-stats-grid">
+              <div class="weather-stat-box">
+                <span id="lblFeelsLike">Feels Like</span>
+                <b id="wFeelsLike">--°C</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblHumidity">Humidity</span>
+                <b id="wHumidity">--%</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblWind">Wind Speed</span>
+                <b id="wWind">-- km/h</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblPrecip">Precipitation</span>
+                <b id="wPrecip">-- mm</b>
+              </div>
+            </div>
+
+            <!-- Smart Spray / Farm Advisory -->
+            <div id="weatherAdvisoryBox" class="notice-box" style="display: none; margin-top: 16px;"></div>
+
+            <h4 style="margin: 24px 0 12px; font-size: 15px;" id="lblForecast">5-Day Agricultural Forecast</h4>
+            <div id="forecastContainer" class="item-list"></div>
+
+            <p style="font-size: 11px; color: var(--muted); margin-top: 14px;" id="weatherSourceFoot">
+              Source: Open-Meteo REST API · Real-time forecast model.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 7. MANDI MARKET PRICES -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-market">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="mandiTitle">📈 Mandi & Market Prices</h2>
+            <p id="mandiSub">Verified modal rates from major APMC mandis across all states in India.</p>
+          </div>
+          <span class="badge badge-ok" id="badgeMandiSource">Verified APMC Bulletins</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1.5fr 1.5fr auto; gap: 12px; margin-bottom: 16px;" class="grid-3">
+          <input class="input" id="mandiSearchQuery" onkeyup="if(event.key==='Enter')fetchMandiPrices()" placeholder="Search crop or city (e.g. Nagpur, Indore, Onion, Cotton, Wheat)">
+          <select class="input" id="mandiStateFilter" onchange="fetchMandiPrices()">
+            <option value="">All States in India (सर्व राज्ये / सभी राज्य)</option>
+            <option value="Maharashtra">Maharashtra (महाराष्ट्र)</option>
+            <option value="Madhya Pradesh">Madhya Pradesh (मध्य प्रदेश)</option>
+            <option value="Gujarat">Gujarat (गुजरात)</option>
+            <option value="Punjab">Punjab (पंजाब)</option>
+            <option value="Haryana">Haryana (हरियाणा)</option>
+            <option value="Rajasthan">Rajasthan (राजस्थान)</option>
+            <option value="Uttar Pradesh">Uttar Pradesh (उत्तर प्रदेश)</option>
+            <option value="Karnataka">Karnataka (कर्नाटक)</option>
+            <option value="Andhra Pradesh">Andhra Pradesh (आंध्र प्रदेश)</option>
+            <option value="Telangana">Telangana (तेलंगाना)</option>
+            <option value="Tamil Nadu">Tamil Nadu (तमिलनाडु)</option>
+            <option value="Bihar">Bihar (बिहार)</option>
+            <option value="West Bengal">West Bengal (पश्चिम बंगाल)</option>
+            <option value="Odisha">Odisha (ओडिशा)</option>
+            <option value="Kerala">Kerala (केरल)</option>
+            <option value="Assam">Assam (असम)</option>
+            <option value="Chhattisgarh">Chhattisgarh (छत्तीसगढ़)</option>
+            <option value="Jharkhand">Jharkhand (झारखंड)</option>
+            <option value="Himachal Pradesh">Himachal Pradesh (हिमाचल प्रदेश)</option>
+            <option value="Uttarakhand">Uttarakhand (उत्तराखंड)</option>
+            <option value="Jammu & Kashmir">Jammu & Kashmir (जम्मू और कश्मीर)</option>
+            <option value="Delhi">Delhi (दिल्ली)</option>
+          </select>
+          <button type="button" class="btn btn-primary" id="btnFilterMandi" onclick="fetchMandiPrices()">🔍 Filter Mandis</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="mandi-table">
+            <thead>
+              <tr>
+                <th id="thCrop">Crop / Commodity</th>
+                <th id="thMandi">APMC Mandi</th>
+                <th id="thState">State & District</th>
+                <th id="thModal">Modal Price (₹/Quintal)</th>
+                <th id="thRange">Min - Max</th>
+                <th id="thTrend">Trend</th>
+                <th id="thDate">Date</th>
+              </tr>
+            </thead>
+            <tbody id="mandiTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="notice-box" id="mandiNotice">
+          📢 <b>Market Advisory:</b> Mandi prices vary daily based on moisture content, foreign matter, and arrivals. Always contact your local APMC market committee before transporting your harvest.
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 8. FARM ACTIVITIES & REMINDERS -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-activities">
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="actTitle">🗓️ Schedule Farm Activity</h2>
+              <p id="actSub">Track irrigation, fertilizer application, spraying, and weeding.</p>
+            </div>
+          </div>
+          <form id="formAddActivity" class="fields-grid" onsubmit="handleAddActivitySubmit(event)">
+            <label class="field full">
+              <span id="lblActName">Activity Description *</span>
+              <input class="input" id="actName" placeholder="e.g. 2nd Irrigation for Wheat, Neem oil spray" required>
+            </label>
+            <label class="field">
+              <span id="lblActCategory">Category</span>
+              <select class="input" id="actCategory">
+                <option value="Irrigation">Irrigation (सिंचन)</option>
+                <option value="Fertilizer">Fertilizer (खते)</option>
+                <option value="Spraying">Spraying (फवारणी)</option>
+                <option value="Weeding">Weeding (खुरपणी / तण नियंत्रण)</option>
+                <option value="Sowing">Sowing (पेरणी)</option>
+                <option value="Harvesting">Harvesting (कापणी)</option>
+                <option value="General">General (इतर)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span id="lblActDate">Date *</span>
+              <input class="input" id="actDate" type="date" required>
+            </label>
+            <label class="field full">
+              <span id="lblActNotes">Notes</span>
+              <textarea class="input" id="actNotes" rows="2" placeholder="e.g. Check soil moisture first; apply early morning."></textarea>
+            </label>
+            <div class="field full">
+              <button type="submit" class="btn btn-primary" id="btnAddAct">➕ Add Reminder</button>
+            </div>
+          </form>
+          <div id="actStatusMsg" class="status-msg"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h3 id="actListTitle">Scheduled Reminders</h3>
+              <p id="actListSub">Keep your farm operations on schedule.</p>
+            </div>
+          </div>
+          <div id="activityListContainer" class="item-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 9. ANALYSIS HISTORY -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-history">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="historyTitle">📚 Crop Scan History</h2>
+            <p id="historySub">Review previous diagnostic reports saved on this device or cloud account.</p>
+          </div>
+          <button type="button" class="btn btn-danger btn-sm" id="btnClearAllHistory" onclick="clearAllHistory()">🗑️ Clear All History</button>
+        </div>
+
+        <div id="historyListContainer" class="item-list"></div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 10. HELP, KVK & HELPLINES -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-help">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="helpTitle">ℹ️ Agricultural Helplines & KVK Directory</h2>
+            <p id="helpSub">Official emergency support and expert consultations across India.</p>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="stat-card" style="border-left: 4px solid var(--green);">
+            <div class="stat-card-top">
+              <span>National Support</span>
+              <div class="stat-card-icon">📞</div>
+            </div>
+            <div class="stat-card-val" style="font-size: 20px;">1800-180-1551</div>
+            <div class="stat-card-foot"><b>Kisan Call Centre (KCC)</b> · Toll-free 6 AM to 10 PM daily in 22 languages.</div>
+          </div>
+
+          <div class="stat-card" style="border-left: 4px solid var(--green);">
+            <div class="stat-card-top">
+              <span>Maharashtra State Helpline</span>
+              <div class="stat-card-icon">☎️</div>
+            </div>
+            <div class="stat-card-val" style="font-size: 20px;">1800-233-4000</div>
+            <div class="stat-card-foot"><b>MahaAgri Call Centre</b> · Government agricultural guidance in Marathi.</div>
+          </div>
+        </div>
+
+        <h3 style="margin: 24px 0 12px;" id="lblKvkHelp">What is a Krishi Vigyan Kendra (KVK)?</h3>
+        <p style="font-size: 13.5px; color: var(--muted); line-height: 1.6;" id="txtKvkDesc">
+          Krishi Vigyan Kendras (KVKs) are agricultural science centers established by the Indian Council of Agricultural Research (ICAR) in every rural district of India. KVK agronomists provide free on-farm testing, certified soil testing, pest diagnosis, and technical training. If your crop has an acute fungal or insect outbreak, take an affected plant specimen inside a clean plastic bag to your district KVK.
+        </p>
+
+        <h4 style="margin: 20px 0 10px;" id="lblSafeSpraying">Safe Agrochemical Guidelines</h4>
+        <ul style="font-size: 13px; color: var(--ink); line-height: 1.7; padding-left: 20px;">
+          <li>Wear protective gear (mask, goggles, gloves) when handling any agricultural chemicals.</li>
+          <li>Never spray against the wind direction.</li>
+          <li>Never wash pesticide sprayers in ponds, wells, or drinking water streams.</li>
+          <li>Read the Central Insecticides Board & Registration Committee (CIBRC) label for approved waiting periods before harvest.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 11. SETTINGS & SYSTEM STATUS -->
+    <!-- ========================================================================= -->
+    <section class="page-section" id="page-settings">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="settingsTitle">⚙️ Settings & System Health</h2>
+            <p id="settingsSub">Review connected databases, AI endpoints, and session data.</p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshHealth" onclick="renderSettings()">🔄 Test Health</button>
+        </div>
+
+        <div class="fields-grid" style="margin-bottom: 20px;">
+          <label class="field">
+            <span id="lblSettingsLang">Interface Language</span>
+            <select class="input" id="settingsLangPicker" onchange="applyLanguage(this.value)">
+              <option value="en">English (English)</option>
+              <option value="hi">हिन्दी (Hindi)</option>
+              <option value="mr">मराठी (Marathi)</option>
+            </select>
+          </label>
+          <div class="field">
+            <span id="lblStorageMode">Storage Mode</span>
+            <div class="input" id="txtStorageMode" style="background: #fafcf8; font-weight: 700;">Local Demo Mode</div>
+          </div>
+        </div>
+
+        <h3 style="margin: 18px 0 10px;" id="lblIntegrations">Integration Status</h3>
+        <div id="integrationListContainer" class="item-list"></div>
+
+        <div style="margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-secondary" id="btnExportData" onclick="exportFarmData()">📥 Export Farm Data (JSON)</button>
+          <button type="button" class="btn btn-danger" id="btnLogoutSession" onclick="handleLogout()">🚪 Log Out / Clear Local Data</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+
+<!-- ========================================================================= -->
+<!-- REPORT DETAILS MODAL -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal-card" style="width: min(650px, 100%);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <h3 style="margin: 0;" id="modalReportTitle">🌾 Crop Health Triage Report</h3>
+      <button type="button" class="btn btn-secondary btn-sm" id="btnCloseReportModal" onclick="closeReportModal()" style="border: 0; font-size: 18px;">✕</button>
+    </div>
+    <div class="report-card" id="modalReportContent" style="max-height: 60vh; overflow-y: auto;"></div>
+    <div style="margin-top: 16px; text-align: right;">
+      <button type="button" class="btn btn-primary" id="btnCloseReportBtn" onclick="closeReportModal()">Close Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- FLOATING CHAT FAB -->
+<button type="button" class="chat-fab" id="chatFabBtn" onclick="navigateTo('assistant')">
+  <span>🤖</span> <span>Ask FarmSaathi</span>
+</button>
+
+<!-- OPTIONAL ASYNC SUPABASE CLIENT -->
+
+  <!-- MODULAR JAVASCRIPT ARCHITECTURE -->
+  <script src="js/supabase-client.js"></script>
+  <script src="js/navigation.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/farmer-profile.js"></script>
+  <script src="js/farms-crops.js"></script>
+  <script src="js/farm-activities.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/mandi-prices.js"></script>
+  <script src="js/crop-analysis.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

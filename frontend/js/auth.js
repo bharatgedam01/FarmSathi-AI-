@@ -1,10 +1,11 @@
 // FarmSaathi AI — Authentication & Session Management Module
-// Supports Supabase Auth (Email/Password), Backend REST Sessions, and Instant Offline Demo Mode.
+// Handles Supabase Cloud Authentication (Sign Up, Sign In, Password Reset, Session Restoration),
+// Protected Routes, User-Level Data Isolation, and Secure Logout.
+// Note: The previous switch-account action has been completely removed as per security specifications.
 
 (function(window) {
   'use strict';
 
-  var authTab = 'login';
   var currentUser = null;
 
   function $(id) {
@@ -17,334 +18,349 @@
 
   function setCurrentUser(user) {
     currentUser = user;
+    if (window.Storage) {
+      if (user) window.Storage.set('current_user', user);
+      else window.Storage.remove('current_user');
+    }
     updateAuthUI();
   }
 
-  function openAuthModal(mode) {
-    setAuthTab(mode || 'login');
-    var modal = $('authModal');
-    if (modal) {
-      modal.classList.add('open');
-      modal.style.display = 'grid';
-    }
-    var msg = $('authStatusMsg');
-    if (msg) {
-      msg.className = 'status-msg';
-      msg.textContent = '';
-    }
-  }
+  // ============================================================================
+  // CORE AUTHENTICATION ACTIONS (SUPABASE & BACKEND)
+  // ============================================================================
 
-  function closeAuthModal() {
-    var modal = $('authModal');
-    if (modal) {
-      modal.classList.remove('open');
-      modal.style.display = 'none';
-    }
-  }
-
-  function setAuthTab(tab) {
-    authTab = tab;
-    var tabLogin = $('tabAuthLogin');
-    var tabSignup = $('tabAuthSignup');
-    var tabDemo = $('tabAuthDemo');
-
-    if (tabLogin) {
-      tabLogin.style.background = tab === 'login' ? 'var(--green)' : '';
-      tabLogin.style.color = tab === 'login' ? '#ffffff' : '';
-    }
-    if (tabSignup) {
-      tabSignup.style.background = tab === 'signup' ? 'var(--green)' : '';
-      tabSignup.style.color = tab === 'signup' ? '#ffffff' : '';
-    }
-    if (tabDemo) {
-      tabDemo.style.background = tab === 'demo' ? 'var(--green)' : '#eef7e5';
-      tabDemo.style.color = tab === 'demo' ? '#ffffff' : '';
+  // 1. SIGN IN
+  async function signInUser(email, password) {
+    if (!email || !password) {
+      throw new Error('Please enter both email and password.');
     }
 
-    var title = $('authModalTitle');
-    var nameField = $('authNameField');
-    var emailField = $('authEmailField');
-    var passField = $('authPasswordField');
-    var submitBtn = $('btnAuthSubmit');
-    var forgotBtn = $('btnForgotPass');
-
-    if (tab === 'login') {
-      if (title) title.textContent = 'Sign in to FarmSaathi AI';
-      if (nameField) nameField.style.display = 'none';
-      if (emailField) emailField.style.display = 'flex';
-      if (passField) passField.style.display = 'flex';
-      if (submitBtn) submitBtn.textContent = 'Log In';
-      if (forgotBtn) forgotBtn.style.display = 'inline-block';
-    } else if (tab === 'signup') {
-      if (title) title.textContent = 'Create your Farmer Account';
-      if (nameField) nameField.style.display = 'flex';
-      if (emailField) emailField.style.display = 'flex';
-      if (passField) passField.style.display = 'flex';
-      if (submitBtn) submitBtn.textContent = 'Create Account';
-      if (forgotBtn) forgotBtn.style.display = 'none';
-    } else if (tab === 'demo') {
-      if (title) title.textContent = 'Instant Demo Farmer Account';
-      if (nameField) nameField.style.display = 'flex';
-      if (emailField) emailField.style.display = 'none';
-      if (passField) passField.style.display = 'none';
-      if (submitBtn) submitBtn.textContent = 'Activate Demo Profile';
-      if (forgotBtn) forgotBtn.style.display = 'none';
-    }
-  }
-
-  async function handleAuthSubmit(e) {
-    if (e && e.preventDefault) e.preventDefault();
-
-    var statusEl = $('authStatusMsg');
-    if (statusEl) {
-      statusEl.className = 'status-msg show';
-      statusEl.textContent = 'Connecting…';
-    }
-
-    // 1. DEMO MODE
-    if (authTab === 'demo') {
-      var demoName = ($('authFullName') && $('authFullName').value.trim()) || 'Rahul Patil';
-      currentUser = {
-        id: 'user_demo',
-        fullName: demoName,
-        email: 'farmer@farmsaathi.in',
-        isDemo: true
-      };
-
-      if (window.FarmerProfile && window.FarmerProfile.getProfile) {
-        var prof = window.FarmerProfile.getProfile();
-        prof.full_name = demoName;
-        window.FarmerProfile.saveProfileLocal(prof);
-      }
-
-      updateAuthUI();
-      if (statusEl) {
-        statusEl.className = 'status-msg show ok';
-        statusEl.textContent = 'Demo profile active as ' + demoName + ' ✓';
-      }
-      setTimeout(closeAuthModal, 900);
-      return;
-    }
-
-    var email = ($('authEmail') && $('authEmail').value.trim()) || '';
-    var password = ($('authPassword') && $('authPassword').value) || '';
-
-    // 2. SUPABASE AUTH (if configured)
+    // Try Supabase Auth
     if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-      try {
-        if (authTab === 'signup') {
-          var fullName = ($('authFullName') && $('authFullName').value.trim()) || 'Farmer';
-          var data = await window.SupabaseClient.signUp(email, password, fullName);
-          currentUser = {
-            id: data.user.id,
-            fullName: fullName,
-            email: email
-          };
-          window.Storage.set('current_user', currentUser);
-          if (statusEl) {
-            statusEl.className = 'status-msg show ok';
-            statusEl.textContent = 'Supabase account created successfully! Welcome, ' + fullName + ' ✓';
-          }
-        } else if (authTab === 'login') {
-          var data = await window.SupabaseClient.signIn(email, password);
-          currentUser = {
-            id: data.user.id,
-            fullName: (data.user.user_metadata && data.user.user_metadata.full_name) || email,
-            email: email
-          };
-          window.Storage.set('current_user', currentUser);
-          if (statusEl) {
-            statusEl.className = 'status-msg show ok';
-            statusEl.textContent = 'Logged in with Supabase ✓ Welcome back!';
-          }
-        }
-
-        updateAuthUI();
-        setTimeout(closeAuthModal, 1100);
-        if (window.syncAllData) window.syncAllData();
-        return;
-      } catch (sbErr) {
-        console.warn('Supabase auth attempt failed, trying backend REST API:', sbErr.message);
-        // Fall through to backend REST API
+      var sbData = await window.SupabaseClient.signIn(email, password);
+      if (sbData && sbData.user) {
+        var userMeta = sbData.user.user_metadata || {};
+        var user = {
+          id: sbData.user.id,
+          fullName: userMeta.full_name || email.split('@')[0],
+          email: sbData.user.email,
+          authProvider: 'supabase'
+        };
+        setCurrentUser(user);
+        return { success: true, user: user, session: sbData.session };
       }
     }
 
-    // 3. BACKEND REST API AUTH
-    if (authTab === 'signup') {
-      var fullName = ($('authFullName') && $('authFullName').value.trim()) || 'Farmer';
-      var res = await window.apiRequest('/api/auth/signup', 'POST', {
-        fullName: fullName,
-        email: email,
-        password: password
-      });
+    // Fallback to Backend REST API
+    var res = await window.apiRequest('/api/auth/login', 'POST', {
+      email: email,
+      password: password
+    });
 
-      if (res.ok && res.data && res.data.success) {
+    if (res.ok && res.data && res.data.success) {
+      if (window.Storage) {
         window.Storage.set('auth_token', res.data.token);
-        currentUser = res.data.user;
-        window.Storage.set('current_user', currentUser);
-        updateAuthUI();
-        if (statusEl) {
-          statusEl.className = 'status-msg show ok';
-          statusEl.textContent = 'Account created successfully! Welcome, ' + fullName + ' ✓';
-        }
-        setTimeout(closeAuthModal, 1100);
-        if (window.syncAllData) window.syncAllData();
-      } else {
-        if (statusEl) {
-          statusEl.className = 'status-msg show err';
-          statusEl.textContent = (res.data && res.data.error) || 'Failed to create account.';
-        }
       }
-    } else if (authTab === 'login') {
-      var res = await window.apiRequest('/api/auth/login', 'POST', {
-        email: email,
-        password: password
-      });
-
-      if (res.ok && res.data && res.data.success) {
-        window.Storage.set('auth_token', res.data.token);
-        currentUser = res.data.user;
-        window.Storage.set('current_user', currentUser);
-        updateAuthUI();
-        if (statusEl) {
-          statusEl.className = 'status-msg show ok';
-          statusEl.textContent = 'Welcome back, ' + (res.data.user.fullName || email) + '! Logged in ✓';
-        }
-        setTimeout(closeAuthModal, 1100);
-        if (window.syncAllData) window.syncAllData();
-      } else {
-        if (statusEl) {
-          statusEl.className = 'status-msg show err';
-          statusEl.textContent = (res.data && res.data.error) || 'Invalid email or password.';
-        }
-      }
+      var backendUser = Object.assign({}, res.data.user, { authProvider: 'backend' });
+      setCurrentUser(backendUser);
+      return { success: true, user: backendUser, token: res.data.token };
+    } else {
+      var errMsg = (res.data && res.data.error) || 'Invalid email or password.';
+      throw new Error(errMsg);
     }
   }
 
-  function handleForgotPassword() {
-    alert('Default Demo Credentials:\n• Email: farmer@farmsaathi.in\n• Password: farmer123\n\nYou can also click "Demo Mode" or create a new account.');
+  // 2. SIGN UP / REGISTER
+  async function signUpUser(fullName, email, password) {
+    if (!fullName || !fullName.trim()) {
+      throw new Error('Please enter your full name.');
+    }
+    if (!email || !email.trim()) {
+      throw new Error('Please enter a valid email address.');
+    }
+    if (!password || password.length < 6) {
+      throw new Error('Password must be at least 6 characters.');
+    }
+
+    // Try Supabase Auth
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
+      var sbData = await window.SupabaseClient.signUp(email, password, fullName.trim());
+      var needsEmailConfirmation = false;
+      if (sbData && sbData.user && (!sbData.session || !sbData.user.confirmed_at)) {
+        // If identities exist and confirmed_at is null, email confirmation required
+        if (Array.isArray(sbData.user.identities) && sbData.user.identities.length === 0) {
+          throw new Error('An account with this email address already exists. Please log in.');
+        }
+        needsEmailConfirmation = !sbData.session;
+      }
+
+      if (sbData && sbData.session && sbData.user) {
+        var user = {
+          id: sbData.user.id,
+          fullName: fullName.trim(),
+          email: sbData.user.email,
+          authProvider: 'supabase'
+        };
+        setCurrentUser(user);
+        return { success: true, user: user, needsConfirmation: false };
+      }
+
+      return {
+        success: true,
+        user: sbData.user,
+        needsConfirmation: needsEmailConfirmation
+      };
+    }
+
+    // Fallback to Backend REST API
+    var res = await window.apiRequest('/api/auth/signup', 'POST', {
+      fullName: fullName.trim(),
+      email: email.trim(),
+      password: password
+    });
+
+    if (res.ok && res.data && res.data.success) {
+      if (window.Storage) {
+        window.Storage.set('auth_token', res.data.token);
+      }
+      var backendUser = Object.assign({}, res.data.user, { authProvider: 'backend' });
+      setCurrentUser(backendUser);
+      return { success: true, user: backendUser, needsConfirmation: false };
+    } else {
+      var errMsg = (res.data && res.data.error) || 'Failed to create account.';
+      throw new Error(errMsg);
+    }
   }
 
+  // 3. REQUEST PASSWORD RESET
+  async function requestPasswordReset(email) {
+    if (!email || !email.trim()) {
+      throw new Error('Please enter your registered email address.');
+    }
+
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
+      var redirectUrl = window.location.origin + '/reset-password.html';
+      await window.SupabaseClient.resetPasswordForEmail(email.trim(), redirectUrl);
+      return { success: true, message: 'Password reset link sent to your email.' };
+    }
+
+    // Local / Backend simulation
+    return {
+      success: true,
+      message: 'If your email is registered, password reset instructions have been sent.'
+    };
+  }
+
+  // 4. PERFORM PASSWORD RESET (NEW PASSWORD)
+  async function performPasswordReset(newPassword) {
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters.');
+    }
+
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
+      await window.SupabaseClient.updatePassword(newPassword);
+      return { success: true, message: 'Password updated successfully!' };
+    }
+
+    throw new Error('Supabase client is not configured for password updates.');
+  }
+
+  // 5. SECURE LOGOUT
   async function handleLogout() {
-    if (confirm('Log out from your FarmSaathi AI account?')) {
+    var confirmLogout = window.confirm('Are you sure you want to log out from FarmSaathi AI?');
+    if (!confirmLogout) return;
+
+    try {
       if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-        try {
-          await window.SupabaseClient.signOut();
-        } catch (e) {}
+        await window.SupabaseClient.signOut();
       }
+    } catch (e) {
+      console.warn('Supabase signOut error:', e);
+    }
 
+    try {
       if (window.isBackendConnected) {
-        try {
-          await window.apiRequest('/api/auth/logout', 'POST');
-        } catch (e) {}
+        await window.apiRequest('/api/auth/logout', 'POST');
       }
+    } catch (e) {
+      console.warn('Backend logout error:', e);
+    }
 
+    if (window.Storage) {
       window.Storage.remove('auth_token');
       window.Storage.remove('current_user');
-      currentUser = null;
-      updateAuthUI();
-      alert('Logged out successfully.');
-      if (window.navigateTo) window.navigateTo('dashboard');
+      window.Storage.remove('farmer_profile');
     }
+    try {
+      localStorage.removeItem('fs_auth_token');
+      localStorage.removeItem('fs_current_user');
+    } catch (e) {}
+
+    currentUser = null;
+    updateAuthUI();
+
+    // Redirect to login page
+    window.location.href = '/login.html';
   }
+
+  // ============================================================================
+  // AUTH UI SYNC & SESSION RESTORATION
+  // ============================================================================
 
   function updateAuthUI() {
     var dot = $('accountDot');
     var label = $('accountLabel');
-    var triggerBtn = $('btnAuthTrigger');
     var badgeSync = $('badgeProfileSync');
     var storageModeText = $('txtStorageMode');
+    var topUserName = $('topUserName');
+    var pageGreeting = $('pageGreeting');
 
     var profile = (window.FarmerProfile && window.FarmerProfile.getProfile) ? window.FarmerProfile.getProfile() : {};
-    var name = (currentUser && (currentUser.fullName || currentUser.full_name)) || profile.full_name || 'Rahul Patil';
+    var name = (currentUser && (currentUser.fullName || currentUser.full_name)) || profile.full_name || 'Farmer';
     var email = (currentUser && currentUser.email) || '';
+
+    if (topUserName) {
+      topUserName.textContent = name;
+    }
+
+    if (pageGreeting && name) {
+      pageGreeting.textContent = 'Good day, ' + name + ' 👋';
+    }
 
     var isSupabase = window.SupabaseClient && window.SupabaseClient.isConfigured();
     var isBackend = window.isBackendConnected;
 
-    if (isSupabase) {
+    if (isSupabase && currentUser) {
       if (dot) dot.className = 'account-dot';
-      var acctText = '🟢 Supabase Cloud · ' + name + (email ? ' (' + email + ')' : '');
+      var acctText = '🟢 Supabase Secure Session · ' + name + (email ? ' (' + email + ')' : '');
       if (label) label.textContent = acctText;
-      if (triggerBtn) triggerBtn.textContent = currentUser ? 'Account (' + name + ')' : 'Log in / Account';
       if (badgeSync) badgeSync.textContent = 'Supabase Cloud Synced ✓';
       if (storageModeText) storageModeText.textContent = 'Supabase Cloud PostgreSQL (with Row Level Security)';
-    } else if (isBackend) {
+    } else if (isBackend && currentUser) {
       if (dot) dot.className = 'account-dot';
-      var acctText = '🟢 Backend Connected · ' + name + (email ? ' (' + email + ')' : ' (farmer@farmsaathi.in)');
+      var acctText = '🟢 Authenticated Farmer · ' + name + (email ? ' (' + email + ')' : '');
       if (label) label.textContent = acctText;
-      if (triggerBtn) triggerBtn.textContent = currentUser ? 'Account (' + name + ')' : 'Switch Account';
       if (badgeSync) badgeSync.textContent = 'Node.js Backend Synced ✓';
       if (storageModeText) storageModeText.textContent = 'Node.js Persistent JSON Database (data/database.json)';
+    } else if (currentUser) {
+      if (dot) dot.className = 'account-dot';
+      if (label) label.textContent = name + ' · Authenticated Farmer';
+      if (badgeSync) badgeSync.textContent = 'Local Storage Mode';
+      if (storageModeText) storageModeText.textContent = 'Local Browser Storage';
     } else {
       if (dot) dot.className = 'account-dot offline';
-      if (label) label.textContent = name + ' · Local Browser Storage (Offline Ready)';
-      if (triggerBtn) triggerBtn.textContent = 'Demo Profile';
-      if (badgeSync) badgeSync.textContent = 'Local Storage Mode';
-      if (storageModeText) storageModeText.textContent = 'Local Browser Storage (Offline Ready)';
+      if (label) label.textContent = 'Unauthenticated Session';
     }
   }
 
-  // Restore session
+  // Restore authenticated session on page load
   async function restoreSession() {
     // 1. Check Supabase session
-    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
-      try {
-        var session = await window.SupabaseClient.getSession();
-        if (session && session.user) {
-          currentUser = {
-            id: session.user.id,
-            fullName: (session.user.user_metadata && session.user.user_metadata.full_name) || session.user.email,
-            email: session.user.email
-          };
-          updateAuthUI();
-          return;
+    if (window.SupabaseClient) {
+      if (typeof window.SupabaseClient.initFromApi === 'function') {
+        await window.SupabaseClient.initFromApi();
+      }
+
+      if (window.SupabaseClient.isConfigured()) {
+        try {
+          var session = await window.SupabaseClient.getSession();
+          if (session && session.user) {
+            var meta = session.user.user_metadata || {};
+            currentUser = {
+              id: session.user.id,
+              fullName: meta.full_name || session.user.email.split('@')[0],
+              email: session.user.email,
+              authProvider: 'supabase'
+            };
+            if (window.Storage) window.Storage.set('current_user', currentUser);
+            updateAuthUI();
+            return currentUser;
+          }
+        } catch (e) {
+          console.warn('Supabase restoreSession notice:', e.message);
         }
-      } catch (e) {}
+      }
     }
 
     // 2. Check stored session
-    var token = window.Storage.get('auth_token', null);
-    if (token) {
-      var meRes = await window.apiRequest('/api/auth/me', 'GET');
-      if (meRes.ok && meRes.data && meRes.data.user) {
-        currentUser = meRes.data.user;
+    if (window.Storage) {
+      var storedUser = window.Storage.get('current_user', null);
+      var token = window.Storage.get('auth_token', null);
+      if (storedUser) {
+        currentUser = storedUser;
         updateAuthUI();
+        return currentUser;
       }
+
+      if (token && window.apiRequest) {
+        try {
+          var meRes = await window.apiRequest('/api/auth/me', 'GET');
+          if (meRes.ok && meRes.data && meRes.data.user) {
+            currentUser = Object.assign({}, meRes.data.user, { authProvider: 'backend' });
+            window.Storage.set('current_user', currentUser);
+            updateAuthUI();
+            return currentUser;
+          }
+        } catch (e) {}
+      }
+    }
+
+    return null;
+  }
+
+  // Listen to Supabase auth state changes automatically
+  function setupAuthListener() {
+    if (window.SupabaseClient && window.SupabaseClient.isConfigured()) {
+      try {
+        window.SupabaseClient.onAuthStateChange(function(event, session) {
+          if (event === 'SIGNED_IN' && session && session.user) {
+            var meta = session.user.user_metadata || {};
+            currentUser = {
+              id: session.user.id,
+              fullName: meta.full_name || session.user.email.split('@')[0],
+              email: session.user.email,
+              authProvider: 'supabase'
+            };
+            if (window.Storage) window.Storage.set('current_user', currentUser);
+            updateAuthUI();
+          } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            if (window.Storage) {
+              window.Storage.remove('current_user');
+              window.Storage.remove('auth_token');
+            }
+            updateAuthUI();
+          }
+        });
+      } catch (e) {}
     }
   }
 
-  // Bind close on overlay click
-  window.addEventListener('DOMContentLoaded', function() {
-    var modal = $('authModal');
-    if (modal) {
-      modal.addEventListener('click', function(e) {
-        if (e.target === modal) closeAuthModal();
+  // Run on page load
+  if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', function() {
+      restoreSession().then(function() {
+        setupAuthListener();
       });
-    }
-  });
+    });
+  }
 
   // Export to window
   window.AuthModule = {
     getCurrentUser: getCurrentUser,
     setCurrentUser: setCurrentUser,
-    openAuthModal: openAuthModal,
-    closeAuthModal: closeAuthModal,
-    setAuthTab: setAuthTab,
-    handleAuthSubmit: handleAuthSubmit,
-    handleForgotPassword: handleForgotPassword,
+    signInUser: signInUser,
+    signUpUser: signUpUser,
+    requestPasswordReset: requestPasswordReset,
+    performPasswordReset: performPasswordReset,
     handleLogout: handleLogout,
     updateAuthUI: updateAuthUI,
     restoreSession: restoreSession
   };
 
-  // Direct window bindings for inline HTML handlers
-  window.openAuthModal = openAuthModal;
-  window.closeAuthModal = closeAuthModal;
-  window.setAuthTab = setAuthTab;
-  window.handleAuthSubmit = handleAuthSubmit;
-  window.handleForgotPassword = handleForgotPassword;
+  // Direct window bindings for backwards compatibility
   window.handleLogout = handleLogout;
   window.updateAuthUI = updateAuthUI;
+  window.restoreSession = restoreSession;
 
 })(window);
