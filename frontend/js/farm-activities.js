@@ -17,7 +17,7 @@
     var today = new Date().toISOString().slice(0, 10);
     var futureDate = new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10);
 
-    return window.Storage.get(getActivitiesKey(), [
+    var defaultActs = [
       {
         id: 'act_1',
         name: 'Irrigate Soybean Field',
@@ -34,11 +34,15 @@
         notes: 'Check underside of leaves for aphids and jassids.',
         completed: false
       }
-    ]);
+    ];
+
+    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getActivitiesKey(), defaultActs) : defaultActs;
   }
 
   function setSavedActivities(acts) {
-    window.Storage.set(getActivitiesKey(), acts);
+    if (window.AppStorage) {
+      window.AppStorage.set(getActivitiesKey(), acts);
+    }
     if (window.updateDashboardCounts) {
       window.updateDashboardCounts();
     }

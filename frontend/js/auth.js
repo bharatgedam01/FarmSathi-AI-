@@ -6,23 +6,33 @@
 (function(window) {
   'use strict';
 
-  // Ensure window.Storage is available immediately in this module
-  window.Storage = window.Storage || {
+  // Ensure window.AppStorage is available immediately in this module
+  // Uses 'fs_' prefix to preserve all farmer profiles, farm details, and history.
+  // Never overwrites native window.Storage.
+  window.AppStorage = window.AppStorage || {
     get: function(key, fallback) {
       try {
+        if (typeof localStorage === 'undefined') return fallback;
         var data = localStorage.getItem('fs_' + key);
-        return data !== null ? JSON.parse(data) : fallback;
+        if (data === null || data === undefined) return fallback;
+        try {
+          return JSON.parse(data);
+        } catch (parseErr) {
+          return data;
+        }
       } catch (e) {
         return fallback;
       }
     },
     set: function(key, value) {
       try {
+        if (typeof localStorage === 'undefined') return;
         localStorage.setItem('fs_' + key, JSON.stringify(value));
       } catch (e) {}
     },
     remove: function(key) {
       try {
+        if (typeof localStorage === 'undefined') return;
         localStorage.removeItem('fs_' + key);
       } catch (e) {}
     }
@@ -35,7 +45,7 @@
     var headers = { 'Content-Type': 'application/json' };
     var token = null;
     try {
-      token = window.Storage.get('auth_token', null);
+      token = (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get('auth_token', null) : null;
       if (!token) {
         var rawToken = localStorage.getItem('fs_auth_token');
         if (rawToken) {
@@ -90,9 +100,9 @@
 
   function setCurrentUser(user) {
     currentUser = user;
-    if (window.Storage) {
-      if (user) window.Storage.set('current_user', user);
-      else window.Storage.remove('current_user');
+    if (window.AppStorage) {
+      if (user) window.AppStorage.set('current_user', user);
+      else window.AppStorage.remove('current_user');
     }
     try {
       if (user) localStorage.setItem('fs_current_user', JSON.stringify(user));
@@ -143,8 +153,8 @@
       });
 
       if (res.ok && res.data && res.data.success) {
-        if (window.Storage) {
-          window.Storage.set('auth_token', res.data.token);
+        if (window.AppStorage) {
+          window.AppStorage.set('auth_token', res.data.token);
         }
         try {
           localStorage.setItem('fs_auth_token', JSON.stringify(res.data.token));
@@ -219,8 +229,8 @@
       });
 
       if (res.ok && res.data && res.data.success) {
-        if (window.Storage) {
-          window.Storage.set('auth_token', res.data.token);
+        if (window.AppStorage) {
+          window.AppStorage.set('auth_token', res.data.token);
         }
         try {
           localStorage.setItem('fs_auth_token', JSON.stringify(res.data.token));
@@ -307,10 +317,10 @@
       console.warn('Backend logout notice:', e);
     }
 
-    if (window.Storage) {
-      window.Storage.remove('auth_token');
-      window.Storage.remove('current_user');
-      window.Storage.remove('farmer_profile');
+    if (window.AppStorage) {
+      window.AppStorage.remove('auth_token');
+      window.AppStorage.remove('current_user');
+      window.AppStorage.remove('farmer_profile');
     }
     try {
       localStorage.removeItem('fs_auth_token');
@@ -396,7 +406,7 @@
               email: session.user.email,
               authProvider: 'supabase'
             };
-            if (window.Storage) window.Storage.set('current_user', currentUser);
+            if (window.AppStorage) window.AppStorage.set('current_user', currentUser);
             try {
               localStorage.setItem('fs_current_user', JSON.stringify(currentUser));
             } catch (e) {}
@@ -411,8 +421,8 @@
 
     // 2. Check stored session in Storage or localStorage
     var storedUser = null;
-    if (window.Storage) {
-      storedUser = window.Storage.get('current_user', null);
+    if (window.AppStorage) {
+      storedUser = window.AppStorage.get('current_user', null);
     }
     if (!storedUser) {
       try {
@@ -421,7 +431,7 @@
       } catch (e) {}
     }
 
-    var token = (window.Storage && window.Storage.get('auth_token', null));
+    var token = (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get('auth_token', null) : null;
     if (!token) {
       try {
         var rawT = localStorage.getItem('fs_auth_token');
@@ -442,7 +452,7 @@
         var meRes = await window.apiRequest('/api/auth/me', 'GET');
         if (meRes.ok && meRes.data && meRes.data.user) {
           currentUser = Object.assign({}, meRes.data.user, { authProvider: 'backend' });
-          if (window.Storage) window.Storage.set('current_user', currentUser);
+          if (window.AppStorage) window.AppStorage.set('current_user', currentUser);
           try {
             localStorage.setItem('fs_current_user', JSON.stringify(currentUser));
           } catch (e) {}
@@ -468,16 +478,16 @@
               email: session.user.email,
               authProvider: 'supabase'
             };
-            if (window.Storage) window.Storage.set('current_user', currentUser);
+            if (window.AppStorage) window.AppStorage.set('current_user', currentUser);
             try {
               localStorage.setItem('fs_current_user', JSON.stringify(currentUser));
             } catch (e) {}
             updateAuthUI();
           } else if (event === 'SIGNED_OUT') {
             currentUser = null;
-            if (window.Storage) {
-              window.Storage.remove('current_user');
-              window.Storage.remove('auth_token');
+            if (window.AppStorage) {
+              window.AppStorage.remove('current_user');
+              window.AppStorage.remove('auth_token');
             }
             try {
               localStorage.removeItem('fs_current_user');

@@ -6,25 +6,35 @@
   'use strict';
 
   // ============================================================================
-  // GLOBAL STORAGE & REST API UTILITIES
+  // GLOBAL STORAGE & REST API UTILITIES (AppStorage)
   // Available to all pages (landing, login, register, reset-password, dashboard)
+  // Uses 'fs_' prefix to preserve all farmer profiles, farm details, and history.
+  // Never overwrites native window.Storage.
   // ============================================================================
-  window.Storage = window.Storage || {
+  window.AppStorage = window.AppStorage || {
     get: function(key, fallback) {
       try {
+        if (typeof localStorage === 'undefined') return fallback;
         var data = localStorage.getItem('fs_' + key);
-        return data !== null ? JSON.parse(data) : fallback;
+        if (data === null || data === undefined) return fallback;
+        try {
+          return JSON.parse(data);
+        } catch (parseErr) {
+          return data;
+        }
       } catch (e) {
         return fallback;
       }
     },
     set: function(key, value) {
       try {
+        if (typeof localStorage === 'undefined') return;
         localStorage.setItem('fs_' + key, JSON.stringify(value));
       } catch (e) {}
     },
     remove: function(key) {
       try {
+        if (typeof localStorage === 'undefined') return;
         localStorage.removeItem('fs_' + key);
       } catch (e) {}
     }
@@ -34,7 +44,7 @@
 
   window.apiRequest = window.apiRequest || async function apiRequest(endpoint, method, data) {
     var headers = { 'Content-Type': 'application/json' };
-    var token = (window.Storage && window.Storage.get) ? window.Storage.get('auth_token', null) : null;
+    var token = (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get('auth_token', null) : null;
     if (!token && typeof localStorage !== 'undefined') {
       try {
         var rawToken = localStorage.getItem('fs_auth_token');

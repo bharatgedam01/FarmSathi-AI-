@@ -14,7 +14,7 @@
   }
 
   function getFarmerProfile() {
-    return window.Storage.get(getProfileKey(), {
+    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getProfileKey(), {
       full_name: 'Rahul Patil',
       phone: '+91 9876543210',
       village: 'Chamorshi',
@@ -29,13 +29,30 @@
       season: 'Kharif',
       latitude: 20.18,
       longitude: 80.00
-    });
+    }) : {
+      full_name: 'Rahul Patil',
+      phone: '+91 9876543210',
+      village: 'Chamorshi',
+      district: 'Gadchiroli',
+      state: 'Maharashtra',
+      preferred_language: 'en',
+      farm_area: '3.5',
+      area_unit: 'acres',
+      soil_type: 'Black Cotton Soil',
+      irrigation_method: 'Drip Irrigation',
+      main_crop: 'Soybean & Cotton',
+      season: 'Kharif',
+      latitude: 20.18,
+      longitude: 80.00
+    };
   }
 
   function saveFarmerProfileLocal(p) {
-    window.Storage.set(getProfileKey(), p);
-    // Also keep generic backup for offline demo
-    window.Storage.set('farmer_profile', p);
+    if (window.AppStorage) {
+      window.AppStorage.set(getProfileKey(), p);
+      // Also keep generic backup for offline demo
+      window.AppStorage.set('farmer_profile', p);
+    }
   }
 
   function loadProfileForm() {
@@ -175,8 +192,10 @@
 
   function deleteProfileData() {
     if (confirm('Delete all saved farmer profile data from this device?')) {
-      window.Storage.remove(getProfileKey());
-      window.Storage.remove('farmer_profile');
+      if (window.AppStorage) {
+        window.AppStorage.remove(getProfileKey());
+        window.AppStorage.remove('farmer_profile');
+      }
       loadProfileForm();
       alert('Profile data cleared.');
     }

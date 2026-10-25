@@ -44,6 +44,42 @@
       "passwordHash": "7be3a0fc57eaeafd3a71b8670fabd1cf548bd8ac8f68652404c66f921933147addc8d9d81ba29a86baf70b41f3e4b084909cf33fbc5ea74ac61465a3cff495f8",
       "salt": "602c4f554d9633dab9899d828761c024",
       "createdAt": "2026-10-25T10:00:13.841Z"
+    },
+    {
+      "id": "usr_1792923153763_c5c60d7c",
+      "fullName": "Rajesh Kumar",
+      "email": "test_user_1792923153696@example.com",
+      "phone": "",
+      "passwordHash": "58af0a7854069f7cb0a5d61227ef8db77feeed52bdc783484896a01fa2db8e4338c7b7e783954b753025d4c6b92d1a73f7e861104f869b07179ce614556aafa8",
+      "salt": "d06d00222dd3cdaf1529844350851ce9",
+      "createdAt": "2026-10-25T10:12:33.763Z"
+    },
+    {
+      "id": "usr_1792923185849_cc761cb3",
+      "fullName": "Rajesh Kumar",
+      "email": "test_user_1792923185796@example.com",
+      "phone": "",
+      "passwordHash": "15f2258029e80bfd5b69150fc38c48479f30297a58c8bca4d92a226a2c68fd03892dbe924c34179f79037b00eef325bb72f4c76f7614228ce7852a1d17007941",
+      "salt": "47451b8813883d100a10f75e559e948a",
+      "createdAt": "2026-10-25T10:13:05.849Z"
+    },
+    {
+      "id": "usr_1792923195318_88e11b4b",
+      "fullName": "Suresh Patil",
+      "email": "test_farmer_1792923195274@farmsaathi.in",
+      "phone": "",
+      "passwordHash": "bb0b5b1208bfa08e1b22bfaba23135553c43c65fadea564016f317110598c74ba0d86c3fa9a6dc6a013d84381bfe6a171a1f28f065987ca81af58d60967461df",
+      "salt": "f30d886a2e18da3a6de332525b860f65",
+      "createdAt": "2026-10-25T10:13:15.318Z"
+    },
+    {
+      "id": "usr_1792923377576_500f2ff6",
+      "fullName": "Bharat Gedam",
+      "email": "gedambharat157@gmail.com",
+      "phone": "",
+      "passwordHash": "8c05944cc3e4065f1c8af7b84d0e9217cb6045c294352d3685450a0d642530233df93686ce2582196ab00e74073471b4c00060f0e4da10eefc2268277bf87b19",
+      "salt": "35f209f58346bb5e5f77a5637a87c241",
+      "createdAt": "2026-10-25T10:16:17.576Z"
     }
   ],
   "sessions": [
@@ -86,6 +122,71 @@
       "token": "fs_sess_89bad1b3ef2ab29b9e0d17815e329210f0221723e3ea5a14",
       "userId": "user_demo",
       "expiresAt": "2026-11-24T10:00:13.906Z"
+    },
+    {
+      "token": "fs_sess_c29f8eb18614a0c9c510d19330f9ed6cd7719ae662005037",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T10:12:33.629Z"
+    },
+    {
+      "token": "fs_sess_7103ac13a06fefb689926d3d76b3c23106a204148ea6f928",
+      "userId": "usr_1792923153763_c5c60d7c",
+      "expiresAt": "2026-11-24T10:12:33.766Z"
+    },
+    {
+      "token": "fs_sess_055b61104ba162d63cf271672f1a58234759e46b38a41f81",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T10:13:05.731Z"
+    },
+    {
+      "token": "fs_sess_a914ec9ffc0c00e9d4be3e3630b268d5291528f79e89c7dd",
+      "userId": "usr_1792923185849_cc761cb3",
+      "expiresAt": "2026-11-24T10:13:05.853Z"
+    },
+    {
+      "token": "fs_sess_5dd0cbb1cd8e0894525beb33e3a012c53e11e01ce9022ae2",
+      "userId": "usr_1792923195318_88e11b4b",
+      "expiresAt": "2026-11-24T10:13:15.321Z"
+    },
+    {
+      "token": "fs_sess_aeebfd6bd1de11ba689efce66fd170c8e5088360a2c7502a",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T10:13:15.378Z"
+    },
+    {
+      "token": "fs_sess_b96a2ddcc78c781d57d8772e5b6289c2027362c0a2f0f65d",
+      "userId": "usr_1792923377576_500f2ff6",
+      "expiresAt": "2026-11-24T10:16:17.580Z"
+    },
+    {
+      "token": "fs_sess_d35d0da8a362c0905375d77b8155cf560e6b0d612ebaf367",
+      "userId": "usr_1792923377576_500f2ff6",
+      "expiresAt": "2026-11-24T10:16:46.664Z"
+    },
+    {
+      "token": "fs_sess_80c2175242bd44bb484f6c00192d59dc1d8e86578060f87a",
+      "userId": "usr_1792923377576_500f2ff6",
+      "expiresAt": "2026-11-24T10:16:58.457Z"
+    },
+    {
+      "token": "fs_sess_16a32a950f5b983336630d128eedf093686297e7d7c45aa1",
+      "userId": "usr_1792923377576_500f2ff6",
+      "expiresAt": "2026-11-24T10:29:37.128Z"
+    },
+    {
+      "token": "fs_sess_3ba89d316ec7298a907c4992c1e2f96434e43a3823333c8a",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T10:44:25.862Z"
+    },
+    {
+      "token": "fs_sess_c4c7476f93770f3c6c46c6cc3960e1546e89be1194508a17",
+      "userId": "usr_1792923377576_500f2ff6",
+      "expiresAt": "2026-11-24T10:49:05.760Z"
+    },
+    {
+      "token": "fs_sess_5531a19c3c016f65c55579e8dc88bb40664be69997aca684",
+      "userId": "usr_1792923377576_500f2ff6",
+      "expiresAt": "2026-11-24T10:50:41.126Z"
     }
   ],
   "profiles": {
@@ -180,6 +281,78 @@
       "latitude": null,
       "longitude": null,
       "updatedAt": "2026-10-25T10:00:13.841Z"
+    },
+    "usr_1792923153763_c5c60d7c": {
+      "userId": "usr_1792923153763_c5c60d7c",
+      "fullName": "Rajesh Kumar",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T10:12:33.763Z"
+    },
+    "usr_1792923185849_cc761cb3": {
+      "userId": "usr_1792923185849_cc761cb3",
+      "fullName": "Rajesh Kumar",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T10:13:05.849Z"
+    },
+    "usr_1792923195318_88e11b4b": {
+      "userId": "usr_1792923195318_88e11b4b",
+      "fullName": "Suresh Patil",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T10:13:15.318Z"
+    },
+    "usr_1792923377576_500f2ff6": {
+      "userId": "usr_1792923377576_500f2ff6",
+      "fullName": "Bharat Gedam",
+      "phone": "",
+      "village": "",
+      "district": "",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T10:16:17.576Z"
     }
   },
   "crops": [

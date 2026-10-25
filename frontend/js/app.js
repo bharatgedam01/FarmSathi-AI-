@@ -11,30 +11,39 @@
   }
 
   // ============================================================================
-  // LOCALSTORAGE MANAGEMENT (Preserves fs_* keys)
+  // LOCALSTORAGE MANAGEMENT (AppStorage preserves fs_* keys)
+  // Never overwrites native window.Storage.
   // ============================================================================
-  var Storage = {
+  var AppStorage = window.AppStorage || {
     get: function(key, fallback) {
       try {
+        if (typeof localStorage === 'undefined') return fallback;
         var data = localStorage.getItem('fs_' + key);
-        return data !== null ? JSON.parse(data) : fallback;
+        if (data === null || data === undefined) return fallback;
+        try {
+          return JSON.parse(data);
+        } catch (parseErr) {
+          return data;
+        }
       } catch (e) {
         return fallback;
       }
     },
     set: function(key, value) {
       try {
+        if (typeof localStorage === 'undefined') return;
         localStorage.setItem('fs_' + key, JSON.stringify(value));
       } catch (e) {}
     },
     remove: function(key) {
       try {
+        if (typeof localStorage === 'undefined') return;
         localStorage.removeItem('fs_' + key);
       } catch (e) {}
     }
   };
 
-  window.Storage = window.Storage || Storage;
+  window.AppStorage = AppStorage;
   window.$ = window.$ || $;
 
   // ============================================================================
@@ -116,7 +125,7 @@
   };
 
   function getLang() {
-    return Storage.get('preferred_language', 'en');
+    return AppStorage.get('preferred_language', 'en');
   }
 
   function t(key) {
@@ -126,7 +135,7 @@
 
   function applyLanguage(lang) {
     if (!lang) lang = 'en';
-    Storage.set('preferred_language', lang);
+    AppStorage.set('preferred_language', lang);
 
     var selector = $('langSelector');
     if (selector) selector.value = lang;
@@ -177,12 +186,12 @@
   // ============================================================================
   // BACKEND REST API CLIENT
   // ============================================================================
-  var API_BASE = (location.protocol === 'file:') ? 'http://localhost:3000' : '';
+  var API_BASE = (typeof location !== 'undefined' && location.protocol === 'file:') ? 'http://localhost:3000' : '';
   var isBackendConnected = false;
 
   async function apiRequest(endpoint, method, data) {
     var headers = { 'Content-Type': 'application/json' };
-    var token = Storage.get('auth_token', null);
+    var token = AppStorage.get('auth_token', null);
     if (token) headers['Authorization'] = 'Bearer ' + token;
 
     var cleanPath = endpoint.startsWith('/') ? endpoint : '/' + endpoint;

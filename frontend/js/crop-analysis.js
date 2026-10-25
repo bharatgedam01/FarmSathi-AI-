@@ -142,11 +142,13 @@
   }
 
   function getSavedHistory() {
-    return window.Storage.get(getHistoryKey(), []);
+    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getHistoryKey(), []) : [];
   }
 
   function setSavedHistory(hist) {
-    window.Storage.set(getHistoryKey(), hist);
+    if (window.AppStorage) {
+      window.AppStorage.set(getHistoryKey(), hist);
+    }
     if (window.updateDashboardCounts) {
       window.updateDashboardCounts();
     }

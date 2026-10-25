@@ -14,7 +14,7 @@
   }
 
   function getSavedCrops() {
-    return window.Storage.get(getCropsKey(), [
+    var defaultCrops = [
       {
         id: 'crop_1',
         name: 'Soybean (सोयाबीन)',
@@ -43,11 +43,14 @@
         area: 1.5,
         notes: 'Installed 5 pheromone traps for pink bollworm monitoring.'
       }
-    ]);
+    ];
+    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getCropsKey(), defaultCrops) : defaultCrops;
   }
 
   function setSavedCrops(crops) {
-    window.Storage.set(getCropsKey(), crops);
+    if (window.AppStorage) {
+      window.AppStorage.set(getCropsKey(), crops);
+    }
     if (window.updateDashboardCounts) {
       window.updateDashboardCounts();
     }
