@@ -117,14 +117,25 @@ const server = http.createServer(async (req, res) => {
 
   // 3. Serve static files with no-cache headers for instant code reload
   let safePath = path.normalize(pathname).replace(/^(\.\.[\/\\])+/, '');
-  if (safePath === '/' || safePath === '\\') safePath = '/index.html';
+  if (safePath === '/' || safePath === '\\') safePath = '/frontend/index.html';
 
-  const filePath = path.join(__dirname, safePath);
+  let filePath = path.join(__dirname, safePath);
+
+  // Prioritize frontend directory for static assets (css, js, assets, index.html)
+  if (!fs.existsSync(filePath)) {
+    const frontendAttempt = path.join(__dirname, 'frontend', safePath);
+    if (fs.existsSync(frontendAttempt)) {
+      filePath = frontendAttempt;
+    }
+  }
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      const indexPath = path.join(__dirname, 'index.html');
-      fs.readFile(indexPath, (readErr, content) => {
+      const fallbackIndexPath = fs.existsSync(path.join(__dirname, 'frontend', 'index.html'))
+        ? path.join(__dirname, 'frontend', 'index.html')
+        : path.join(__dirname, 'index.html');
+
+      fs.readFile(fallbackIndexPath, (readErr, content) => {
         if (readErr) {
           res.writeHead(404, { 'Content-Type': 'text/plain' });
           res.end('Not Found');

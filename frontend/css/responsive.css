@@ -1,0 +1,38 @@
+/* FarmSaathi AI — Responsive & Mobile Layout Styles */
+@media (max-width: 950px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        height: auto;
+        position: static;
+        padding: 14px;
+        gap: 12px;
+      }
+      .sidebar-footer { display: none; }
+      .nav-label { display: none; }
+      .nav-list {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .nav-btn {
+        white-space: nowrap;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .hero-banner { grid-template-columns: 1fr; }
+      .hero-art { display: none; }
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 650px) {
+      main { padding: 16px 12px 60px; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      .fields-grid { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; align-items: stretch; }
+      .topbar-actions { justify-content: space-between; }
+      .chat-fab { bottom: 16px; right: 16px; padding: 11px 16px; }
+      .weather-stats-grid { grid-template-columns: 1fr 1fr; }
+    }

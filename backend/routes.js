@@ -4,8 +4,9 @@
 const url = require('url');
 const path = require('path');
 const db = require('./db');
-
-const FUNCTIONS_DIR = path.join(__dirname, '..', 'netlify', 'functions');
+const aiService = require('./services/aiService');
+const mandiService = require('./services/mandiService');
+const weatherService = require('./services/weatherService');
 
 // Helper to send JSON responses
 function sendJson(res, statusCode, data) {
@@ -329,49 +330,45 @@ async function handleApiRequest(req, res) {
     }
 
     // -------------------------------------------------------------
-    // 7. MANDI, CHAT, ANALYZE DISPATCHERS
+    // 7. CHAT, ANALYZE, MANDI ENDPOINTS
     // -------------------------------------------------------------
-    if (pathname === '/api/chat' || pathname === '/api/analyze' || pathname === '/api/mandi') {
-      const funcName = pathname.replace('/api/', '');
-      const netlifyRes = await dispatchNetlifyFunction(funcName, req, pathname, query, rawBodyText);
-      if (netlifyRes) {
-        res.writeHead(netlifyRes.statusCode, netlifyRes.headers);
-        res.end(netlifyRes.body);
+    if (pathname === '/api/chat' && method === 'POST') {
+      const message = String((body && body.message) || '').trim();
+      if (!message) {
+        sendJson(res, 400, { success: false, error: 'Please enter a farming question.' });
         return true;
       }
+      const chatRes = await aiService.askChat(message, body.language || 'en', body.profile || {}, body.history || []);
+      sendJson(res, 200, { success: true, answer: chatRes.answer, mode: chatRes.mode });
+      return true;
+    }
+
+    if (pathname === '/api/analyze' && method === 'POST') {
+      const image = (body && (body.image || body.imageBase64 || body.photo)) || null;
+      const cropName = (body && body.cropName) || '';
+      const fileName = (body && body.fileName) || 'crop_leaf.jpg';
+      const language = (body && body.language) || 'en';
+      const analyzeRes = await aiService.analyzeCropPhoto(image, 'image/jpeg', cropName, fileName, language);
+      sendJson(res, 200, { success: true, report: analyzeRes.report, crop: analyzeRes.crop, mode: analyzeRes.mode });
+      return true;
+    }
+
+    if (pathname === '/api/mandi' && method === 'GET') {
+      const state = query.state || '';
+      const search = query.q || query.search || query.crop || '';
+      const mandiRes = mandiService.queryMandiPrices({ state, query: search });
+      sendJson(res, 200, mandiRes);
+      return true;
     }
 
     // -------------------------------------------------------------
     // 8. RESILIENT WEATHER PROXY ENDPOINT
     // -------------------------------------------------------------
     if (pathname === '/api/weather') {
-      const lat = parseFloat(query.lat) || 20.18;
-      const lon = parseFloat(query.lon) || 80.00;
-      const city = query.city || 'Gadchiroli';
-
-      // Send structured weather forecast
-      const weatherData = {
-        success: true,
-        city: city,
-        latitude: lat,
-        longitude: lon,
-        current: {
-          temperature_2m: 28.4,
-          relative_humidity_2m: 68,
-          wind_speed_10m: 11.2,
-          weather_code: 1,
-          time: new Date().toISOString()
-        },
-        forecast: [
-          { day: 'Today', temp_max: 31, temp_min: 22, code: 1, rain_prob: 10 },
-          { day: 'Tomorrow', temp_max: 30, temp_min: 21, code: 2, rain_prob: 20 },
-          { day: 'Day 3', temp_max: 29, temp_min: 20, code: 61, rain_prob: 45 },
-          { day: 'Day 4', temp_max: 32, temp_min: 22, code: 0, rain_prob: 5 },
-          { day: 'Day 5', temp_max: 31, temp_min: 23, code: 1, rain_prob: 15 }
-        ],
-        source: 'FarmSaathi Weather Engine (Open-Meteo Synced)'
-      };
-
+      const city = query.city || query.location || 'Gadchiroli';
+      const lat = query.lat;
+      const lon = query.lon;
+      const weatherData = await weatherService.getWeatherData({ city, lat, lon });
       sendJson(res, 200, weatherData);
       return true;
     }

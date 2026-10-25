@@ -8,6 +8,15 @@
       "passwordHash": "aec04f4b91c690e67daf47ee70cff6c728e16c805839fd6601fe24d901028b2b9ce9893f0b26981e7746b73eeb51ff7672de4f1287ed46ecdcd89014421f2da9",
       "salt": "7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c",
       "createdAt": "2026-10-24T09:53:08.217Z"
+    },
+    {
+      "id": "usr_1792913346771_ab51c0de",
+      "fullName": "Anand Shinde",
+      "email": "farmer_test_1792913346718@farmsaathi.in",
+      "phone": "+91 9898989898",
+      "passwordHash": "95aeef5c8c3ff176791c6d227eea5f269743021a11c9cfaff90b0ad17072904d4cf9ef28280c755e0048373a54d9168092a1dee7fc9285f8184d58b10f9a93aa",
+      "salt": "9e1a427392ddfc3d9613a39922e845e6",
+      "createdAt": "2026-10-25T07:29:06.771Z"
     }
   ],
   "sessions": [
@@ -20,6 +29,11 @@
       "token": "fs_sess_f1cf3b19035d9d47fde0caf51f3991ed9edac6c248d96a9d",
       "userId": "user_demo",
       "expiresAt": "2026-11-23T09:57:55.838Z"
+    },
+    {
+      "token": "fs_sess_7d604127bacb3acb19f42cc0654e21f86d558625f3ffcdc8",
+      "userId": "user_demo",
+      "expiresAt": "2026-11-24T06:50:32.648Z"
     }
   ],
   "profiles": {
@@ -40,6 +54,26 @@
       "latitude": 20.18,
       "longitude": 80,
       "updatedAt": "2026-10-24T09:53:08.218Z"
+    },
+    "usr_1792913346771_ab51c0de": {
+      "userId": "usr_1792913346771_ab51c0de",
+      "fullName": "Anand Shinde",
+      "phone": "+91 9898989898",
+      "village": "Armori",
+      "district": "Gadchiroli",
+      "state": "Maharashtra",
+      "preferredLanguage": "en",
+      "farmArea": "",
+      "areaUnit": "acres",
+      "soilType": "",
+      "irrigationMethod": "",
+      "mainCrop": "",
+      "season": "Kharif",
+      "latitude": null,
+      "longitude": null,
+      "updatedAt": "2026-10-25T07:29:06.787Z",
+      "full_name": "Anand Shinde",
+      "main_crop": "Paddy & Soybean"
     }
   },
   "crops": [
@@ -100,13 +134,13 @@
   ],
   "analyses": [
     {
-      "id": "scan_1",
+      "id": "scan_1792838681263_39f937",
       "userId": "user_demo",
-      "crop": "Soybean Leaf Specimen",
-      "fileName": "soybean_leaf_sample.jpg",
-      "report": "🌾 Farm Intelligence — Crop Leaf Health Triage Report (Soybean)\n======================================================\n1. Visible Plant Observations:\n   - Foliage displays localized chlorotic yellowing on lower leaves with healthy veins.\n2. Differential Diagnosis:\n   - Primary: Early cercospora leaf spot combined with mild nitrogen deficiency.\n3. Immediate Actions:\n   - Rogue out heavily spotted senescent leaves; avoid overhead watering.\n4. Safe IPM Remedies:\n   - Apply bio-fungicide Trichoderma viride @ 5g/L during cool evening hours.\n5. Official Referral:\n   - Consult your local Krishi Vigyan Kendra (KVK) or Kisan Call Centre (1800-180-1551).",
-      "isDemo": true,
-      "createdAt": "2026-10-22T09:53:08.218Z"
+      "crop": "Soybean & Cotton",
+      "fileName": "doraemon.jpg",
+      "report": "🌾 **Farm Intelligence — Crop Leaf Health Triage Report (Soybean & Cotton)**\n======================================================\nDate: 10/24/2026 | File: crop_leaf.jpg\n\n1. **Visible Plant Observations:**\n   - Foliage shows localized chlorotic yellowing with early necrotic borders on outer leaf margins.\n   - Interveinal leaf tissue displays moderate pigment degradation indicative of early fungal pathology or micronutrient deficiency.\n\n2. **Differential Diagnosis (Possibilities):**\n   - **Primary Consideration:** Early fungal leaf spot (Cercospora / Alternaria complex).\n   - **Secondary Consideration:** Micronutrient chlorosis (Magnesium/Iron) combined with minor sucking pest feeding injury.\n\n3. **Confidence & Advisory Limitations:**\n   - *Moderate Triage Confidence*: This is an automated preliminary visual screening, not a definitive laboratory culture or microscopic confirmation.\n\n4. **Immediate Field Cultural Actions:**\n   - Rogue out heavily spotted lower senescent leaves to minimize inoculum load.\n   - Transition from overhead sprinkling to drip or furrow irrigation to keep foliar surfaces dry.\n\n5. **Safe Integrated Pest & Disease Management (IPM):**\n   - **Bio-fungicide:** Apply *Trichoderma viride* or *Pseudomonas fluorescens* at 5g/L foliar spray during cool evening hours.\n   - **Insect Barrier:** Apply Cold-pressed Neem Seed Kernel Extract (NSKE 5%) or Azadirachtin 1500 ppm @ 5ml/L to deter insect vectors.\n   - **Foliar Nutrition:** Apply balanced water-soluble micronutrient mixture (Zinc + Boron + Magnesium) at 2g/L.\n\n6. **Local Extension Referral:**\n   - If symptoms expand within 72 hours, bring a fresh leaf sample to your nearest **Krishi Vigyan Kendra (KVK)** or call the national **Kisan Call Centre (1800-180-1551)**.",
+      "isDemo": false,
+      "createdAt": "2026-10-24T10:44:41.263Z"
     }
   ]
 }
