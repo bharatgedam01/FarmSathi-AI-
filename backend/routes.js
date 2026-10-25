@@ -186,7 +186,9 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     // 2. AUTHENTICATION ENDPOINTS
     // -------------------------------------------------------------
-    if (pathname === '/api/auth/signup' && method === 'POST') {
+    const action = (query && query.action) ? String(query.action).toLowerCase() : '';
+
+    if ((pathname === '/api/auth/signup' || action === 'signup') && method === 'POST') {
       const { fullName, email, password, phone } = body;
       if (!fullName || !fullName.trim() || !email || !email.includes('@') || !password || password.length < 6) {
         sendJson(res, 400, { success: false, error: 'Full name, valid email, and password (at least 6 characters) are required' });
@@ -209,7 +211,7 @@ async function handleApiRequest(req, res) {
       return true;
     }
 
-    if (pathname === '/api/auth/login' && method === 'POST') {
+    if ((pathname === '/api/auth/login' || action === 'login') && method === 'POST') {
       const { email, password } = body;
       if (!email || !password) {
         sendJson(res, 400, { success: false, error: 'Email and password are required' });
@@ -232,14 +234,14 @@ async function handleApiRequest(req, res) {
       return true;
     }
 
-    if (pathname === '/api/auth/logout' && method === 'POST') {
+    if ((pathname === '/api/auth/logout' || action === 'logout') && method === 'POST') {
       const authHeader = req.headers['authorization'];
       if (authHeader) db.deleteSession(authHeader);
       sendJson(res, 200, { success: true, message: 'Logged out successfully' });
       return true;
     }
 
-    if (pathname === '/api/auth/me' && method === 'GET') {
+    if ((pathname === '/api/auth/me' || action === 'me' || (pathname === '/api/auth' && method === 'GET')) && method === 'GET') {
       const authHeader = req.headers['authorization'];
       if (!authHeader) {
         sendJson(res, 200, {
