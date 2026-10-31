@@ -74,73 +74,9 @@ function getInitialSeedData() {
         updatedAt: new Date().toISOString()
       }
     },
-    crops: [
-      {
-        id: 'crop_1',
-        userId: 'user_demo',
-        cropName: 'Soybean (JS-335)',
-        fieldName: 'North Field - Plot A',
-        sowingDate: '2026-06-25',
-        growthStage: 'Pod Filling (शेंगा भरणे)',
-        area: '2.0 Acres',
-        notes: 'Applied 0:52:34 foliar spray. Moisture level good.',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'crop_2',
-        userId: 'user_demo',
-        cropName: 'BT Cotton',
-        fieldName: 'South Field - Plot B',
-        sowingDate: '2026-06-20',
-        growthStage: 'Boll Development (बोंड विकास)',
-        area: '1.5 Acres',
-        notes: 'Installed 5 pheromone traps for pink bollworm monitoring.',
-        createdAt: new Date().toISOString()
-      }
-    ],
-    activities: [
-      {
-        id: 'act_1',
-        userId: 'user_demo',
-        name: 'Irrigate Soybean Field',
-        category: 'Irrigation',
-        date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
-        notes: 'Check moisture in root zone; run drip irrigation for 2 hours.',
-        completed: false,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'act_2',
-        userId: 'user_demo',
-        name: 'Inspect Cotton for Pink Bollworm',
-        category: 'Spraying',
-        date: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
-        notes: 'Inspect 20 bolls across field for early moth entry holes.',
-        completed: false,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'act_3',
-        userId: 'user_demo',
-        name: 'Soil Nutrient Testing Preparation',
-        category: 'Fertilizer',
-        date: new Date(Date.now() + 86400000 * 7).toISOString().slice(0, 10),
-        notes: 'Collect V-shaped soil samples from 8 spots for KVK testing.',
-        completed: false,
-        createdAt: new Date().toISOString()
-      }
-    ],
-    analyses: [
-      {
-        id: 'scan_1',
-        userId: 'user_demo',
-        crop: 'Soybean Leaf Specimen',
-        fileName: 'soybean_leaf_sample.jpg',
-        report: '🌾 Farm Intelligence — Crop Leaf Health Triage Report (Soybean)\n======================================================\n1. Visible Plant Observations:\n   - Foliage displays localized chlorotic yellowing on lower leaves with healthy veins.\n2. Differential Diagnosis:\n   - Primary: Early cercospora leaf spot combined with mild nitrogen deficiency.\n3. Immediate Actions:\n   - Rogue out heavily spotted senescent leaves; avoid overhead watering.\n4. Safe IPM Remedies:\n   - Apply bio-fungicide Trichoderma viride @ 5g/L during cool evening hours.\n5. Official Referral:\n   - Consult your local Krishi Vigyan Kendra (KVK) or Kisan Call Centre (1800-180-1551).',
-        isDemo: true,
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
-      }
-    ]
+    crops: [],
+    activities: [],
+    analyses: []
   };
 }
 
@@ -366,14 +302,15 @@ function saveProfile(userId, profileData) {
 
 // Crops API
 function getCrops(userId) {
+  if (!userId) return [];
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  return db.crops.filter(c => c.userId === targetId || (!c.userId && targetId === 'user_demo'));
+  return db.crops.filter(c => c.userId === userId);
 }
 
 function addCrop(userId, cropData) {
+  if (!userId) throw new Error('User ID is required to add crops');
   const db = getDb();
-  const targetId = userId || 'user_demo';
+  const targetId = userId;
 
   const newCrop = {
     id: 'crop_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex'),
@@ -393,25 +330,26 @@ function addCrop(userId, cropData) {
 }
 
 function deleteCrop(userId, cropId) {
+  if (!userId || !cropId) return false;
   const db = getDb();
-  const targetId = userId || 'user_demo';
   const initialLen = db.crops.length;
 
-  db.crops = db.crops.filter(c => !(c.id === cropId && (c.userId === targetId || targetId === 'user_demo')));
+  db.crops = db.crops.filter(c => !(c.id === cropId && c.userId === userId));
   saveDb(db);
   return db.crops.length < initialLen;
 }
 
 // Activities API
 function getActivities(userId) {
+  if (!userId) return [];
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  return db.activities.filter(a => a.userId === targetId || (!a.userId && targetId === 'user_demo'));
+  return db.activities.filter(a => a.userId === userId);
 }
 
 function addActivity(userId, activityData) {
+  if (!userId) throw new Error('User ID is required to add activities');
   const db = getDb();
-  const targetId = userId || 'user_demo';
+  const targetId = userId;
 
   const newActivity = {
     id: 'act_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex'),
@@ -451,19 +389,19 @@ function updateActivity(userId, activityId, activityData) {
 }
 
 function deleteActivity(userId, activityId) {
+  if (!userId || !activityId) return false;
   const db = getDb();
-  const targetId = userId || 'user_demo';
   const initialLen = db.activities.length;
 
-  db.activities = db.activities.filter(a => !(a.id === activityId && (a.userId === targetId || targetId === 'user_demo')));
+  db.activities = db.activities.filter(a => !(a.id === activityId && a.userId === userId));
   saveDb(db);
   return db.activities.length < initialLen;
 }
 
 function toggleActivity(userId, activityId) {
+  if (!userId || !activityId) return null;
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  const act = db.activities.find(a => a.id === activityId && (a.userId === targetId || targetId === 'user_demo'));
+  const act = db.activities.find(a => a.id === activityId && a.userId === userId);
   if (act) {
     act.completed = !act.completed;
     saveDb(db);
@@ -474,14 +412,15 @@ function toggleActivity(userId, activityId) {
 
 // Analyses API
 function getAnalyses(userId) {
+  if (!userId) return [];
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  return db.analyses.filter(a => a.userId === targetId || (!a.userId && targetId === 'user_demo'));
+  return (db.analyses || []).filter(a => a.userId === userId);
 }
 
 function addAnalysis(userId, analysisData) {
+  if (!userId) throw new Error('User ID is required to save scan analyses');
   const db = getDb();
-  const targetId = userId || 'user_demo';
+  const targetId = userId;
 
   const newAnalysis = {
     id: analysisData.id || ('scan_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex')),
@@ -500,21 +439,22 @@ function addAnalysis(userId, analysisData) {
 }
 
 function deleteAnalysis(userId, analysisId) {
+  if (!userId || !analysisId) return false;
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  const initialLen = db.analyses.length;
+  const initialLen = (db.analyses || []).length;
 
-  db.analyses = db.analyses.filter(a => !(a.id === analysisId && (a.userId === targetId || targetId === 'user_demo')));
+  db.analyses = (db.analyses || []).filter(a => !(a.id === analysisId && a.userId === userId));
   saveDb(db);
   return db.analyses.length < initialLen;
 }
 
 function clearAnalyses(userId) {
+  if (!userId) return 0;
   const db = getDb();
-  const targetId = userId || 'user_demo';
-  db.analyses = db.analyses.filter(a => a.userId !== targetId && targetId !== 'user_demo');
+  const beforeLen = (db.analyses || []).length;
+  db.analyses = (db.analyses || []).filter(a => a.userId !== userId);
   saveDb(db);
-  return true;
+  return beforeLen - db.analyses.length;
 }
 
 function getStats() {

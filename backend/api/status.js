@@ -2,6 +2,7 @@
 // Reports backend health, system status, and connected services.
 
 const dbService = require('../services/dbService');
+const aiService = require('../services/aiService');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,12 +14,11 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
-  const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '');
-  const hasAiKey = hasGeminiKey || hasOpenAiKey;
-  const activeProvider = hasGeminiKey ? 'Google Gemini' : (hasOpenAiKey ? 'OpenAI' : 'None');
-  const chatModel = hasGeminiKey ? (process.env.GEMINI_MODEL || 'gemini-1.5-flash') : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
-  const visionModel = hasGeminiKey ? (process.env.GEMINI_MODEL || 'gemini-1.5-flash') : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+  const aiConfig = aiService.getAiConfigStatus ? aiService.getAiConfigStatus() : {};
+  const hasAiKey = Boolean(aiConfig.hasKey);
+  const activeProvider = aiConfig.provider === 'gemini' ? 'Google Gemini' : (aiConfig.provider === 'openai' ? 'OpenAI' : 'None');
+  const chatModel = hasAiKey ? (aiConfig.model || 'gemini-3.5-flash-lite') : 'Unconfigured (Awaiting API Key)';
+  const visionModel = hasAiKey ? (process.env.GEMINI_VISION_MODEL || aiConfig.model || 'gemini-3.5-flash-lite') : 'Unconfigured (Awaiting API Key)';
 
   let stats = {};
   try {

@@ -124,8 +124,12 @@ CRITICAL INSTRUCTIONS:
   // --- GOOGLE GEMINI PROVIDER ---
   if (config.provider === 'gemini') {
     const apiKey = process.env.GEMINI_API_KEY.trim();
+    // Live API test (2026-10-31) confirmed: gemini-3.5-flash-lite is available, supports
+    // vision (image input), and responds with HTTP 200. gemini-1.5-flash / gemini-2.x-flash
+    // are no longer available to new API keys. The API itself recommends gemini-3.5-flash-lite.
     let model = (process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
-    if (model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash') {
+    // Replace any outdated/non-existent model references
+    if (!model || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash') {
       model = 'gemini-3.5-flash-lite';
     }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -330,8 +334,13 @@ Structure your response with clear Markdown headings:
 
   // --- GEMINI MULTIMODAL VISION ---
   if (config.provider === 'gemini') {
+    const apiKey = process.env.GEMINI_API_KEY.trim();
+    // Live API test (2026-10-31) confirmed: gemini-3.5-flash-lite is available, supports
+    // vision (image input), and responds with HTTP 200. gemini-1.5-flash / gemini-2.x-flash
+    // are no longer available to new API keys. The API itself recommends gemini-3.5-flash-lite.
     let model = (process.env.GEMINI_VISION_MODEL || process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite').trim();
-    if (model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash') {
+    // Replace any outdated/non-existent model references with the confirmed working model
+    if (!model || model === 'gemini-1.5-flash' || model === 'gemini-2.0-flash' || model === 'gemini-2.5-flash') {
       model = 'gemini-3.5-flash-lite';
     }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;

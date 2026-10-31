@@ -14,35 +14,8 @@
   }
 
   function getSavedActivities() {
-    var today = new Date().toISOString().slice(0, 10);
-    var futureDate = new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10);
-
-    var defaultActs = [
-      {
-        id: 'act_1',
-        name: 'Irrigate Soybean Field',
-        category: 'Irrigation',
-        date: today,
-        farm: 'Main Plot',
-        crop: 'Soybean',
-        notes: 'Check moisture around root zone; run drip for 2 hours.',
-        completed: false,
-        status: 'Pending'
-      },
-      {
-        id: 'act_2',
-        name: 'Inspect Cotton for Sucking Pests',
-        category: 'Spraying',
-        date: futureDate,
-        farm: 'East Field',
-        crop: 'Cotton',
-        notes: 'Check underside of leaves for aphids and jassids.',
-        completed: false,
-        status: 'Pending'
-      }
-    ];
-
-    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getActivitiesKey(), defaultActs) : defaultActs;
+    // Always default to an empty array so new users see 0 reminders, not sample data.
+    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getActivitiesKey(), []) : [];
   }
 
   function setSavedActivities(acts) {

@@ -8,9 +8,9 @@ function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
     const user = dbService.getUserByToken(authHeader);
-    if (user) return user.id;
+    if (user && user.id) return user.id;
   }
-  return 'user_demo';
+  return null;
 }
 
 function sendJson(res, statusCode, data) {
@@ -63,8 +63,17 @@ module.exports = async (req, res) => {
     : (parsedUrl.query.id || '');
 
   if (method === 'GET') {
+    if (!userId) {
+      sendJson(res, 200, { success: true, count: 0, analyses: [] });
+      return;
+    }
     const list = dbService.getAnalyses(userId);
     sendJson(res, 200, { success: true, count: list.length, analyses: list });
+    return;
+  }
+
+  if (!userId) {
+    sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to save scan history.' });
     return;
   }
 

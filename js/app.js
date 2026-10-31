@@ -72,7 +72,8 @@
       stat_activities: 'Reminders',
       save_success: 'Saved successfully ✓',
       delete_confirm: 'Are you sure you want to delete this record?',
-      empty_records: 'No records found.'
+      empty_records: 'No records found.',
+      empty_crops: 'No crops added yet. Add your first crop to get started.'
     },
     hi: {
       app_title: 'फार्मसाथी एआई — स्मार्ट कृषक सहायता मंच',
@@ -96,7 +97,8 @@
       stat_activities: 'कार्य अनुस्मारक',
       save_success: 'सफलतापूर्वक सहेजा गया ✓',
       delete_confirm: 'क्या आप निश्चित रूप से इस रिकॉर्ड को हटाना चाहते हैं?',
-      empty_records: 'कोई विवरण उपलब्ध नहीं है।'
+      empty_records: 'कोई विवरण उपलब्ध नहीं है।',
+      empty_crops: 'अभी तक कोई फसल नहीं जोड़ी गई है। शुरुआत करने के लिए अपनी पहली फसल जोड़ें।'
     },
     mr: {
       app_title: 'फार्मसाथी AI — स्मार्ट शेतकरी सहाय्यक व्यासपीठ',
@@ -120,7 +122,8 @@
       stat_activities: 'नियोजित कामे',
       save_success: 'यशस्वीरीत्या जतन केले ✓',
       delete_confirm: 'तुम्हाला खात्री आहे का हा रेकॉर्ड काढून टाकायचा आहे?',
-      empty_records: 'कोणतीही नोंद उपलब्ध नाही.'
+      empty_records: 'कोणतीही नोंद उपलब्ध नाही.',
+      empty_crops: 'अद्याप कोणतेही पीक जोडलेले नाही. सुरुवात करण्यासाठी आपले पहिले पीक जोडा.'
     }
   };
 

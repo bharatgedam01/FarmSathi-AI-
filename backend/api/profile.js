@@ -7,9 +7,9 @@ function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
     const user = dbService.getUserByToken(authHeader);
-    if (user) return user.id;
+    if (user && user.id) return user.id;
   }
-  return 'user_demo';
+  return null;
 }
 
 function sendJson(res, statusCode, data) {
@@ -55,12 +55,20 @@ module.exports = async (req, res) => {
   const method = req.method.toUpperCase();
 
   if (method === 'GET') {
+    if (!userId) {
+      sendJson(res, 200, { success: true, profile: null });
+      return;
+    }
     const profile = dbService.getProfile(userId);
     sendJson(res, 200, { success: true, profile });
     return;
   }
 
   if (method === 'POST' || method === 'PUT') {
+    if (!userId) {
+      sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to save profile.' });
+      return;
+    }
     const body = await parseBody(req);
     const updated = dbService.saveProfile(userId, body);
     sendJson(res, 200, { success: true, message: 'Profile updated successfully', profile: updated });

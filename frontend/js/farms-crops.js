@@ -14,37 +14,8 @@
   }
 
   function getSavedCrops() {
-    var defaultCrops = [
-      {
-        id: 'crop_1',
-        name: 'Soybean (सोयाबीन)',
-        cropName: 'Soybean',
-        variety: 'JS-335 / Phule Kalyani',
-        plot: 'North Field - Plot A',
-        fieldName: 'North Field - Plot A',
-        sowing_date: '2026-06-25',
-        sowingDate: '2026-06-25',
-        stage: 'Pod Formation (शेंगा भरणे)',
-        growthStage: 'Pod Formation',
-        area: 2.0,
-        notes: 'Applied 0:52:34 foliar nutrition. Soil moisture optimal.'
-      },
-      {
-        id: 'crop_2',
-        name: 'Cotton (कापूस)',
-        cropName: 'Cotton',
-        variety: 'BT Cotton (Medium Staple)',
-        plot: 'South Field - Plot B',
-        fieldName: 'South Field - Plot B',
-        sowing_date: '2026-06-20',
-        sowingDate: '2026-06-20',
-        stage: 'Boll Development (बोंड विकास)',
-        growthStage: 'Boll Development',
-        area: 1.5,
-        notes: 'Installed 5 pheromone traps for pink bollworm monitoring.'
-      }
-    ];
-    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getCropsKey(), defaultCrops) : defaultCrops;
+    // Always default to an empty array so new users see 0 crops, not sample data.
+    return (window.AppStorage && window.AppStorage.get) ? window.AppStorage.get(getCropsKey(), []) : [];
   }
 
   function setSavedCrops(crops) {
@@ -63,8 +34,8 @@
     var crops = getSavedCrops();
 
     if (crops.length === 0) {
-      var emptyMsg = (window.t && window.t('empty_records')) || 'No crops saved yet. Fill out the form to add your first crop record.';
-      container.innerHTML = '<div style="color: var(--muted); font-size: 13px; text-align: center; padding: 20px;">' + emptyMsg + '</div>';
+      var emptyMsg = (window.t && window.t('empty_crops')) || 'No crops added yet. Add your first crop to get started.';
+      container.innerHTML = '<div style="color: var(--muted); font-size: 13.5px; text-align: center; padding: 28px 16px;">🌱 ' + emptyMsg + '</div>';
       return;
     }
 

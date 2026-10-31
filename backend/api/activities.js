@@ -8,9 +8,9 @@ function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
     const user = dbService.getUserByToken(authHeader);
-    if (user) return user.id;
+    if (user && user.id) return user.id;
   }
-  return 'user_demo';
+  return null;
 }
 
 function sendJson(res, statusCode, data) {
@@ -68,6 +68,10 @@ module.exports = async (req, res) => {
   }
 
   if (method === 'GET') {
+    if (!userId) {
+      sendJson(res, 200, { success: true, count: 0, activities: [] });
+      return;
+    }
     if (actId) {
       const activities = dbService.getActivities(userId);
       const act = activities.find(a => String(a.id) === String(actId));
@@ -80,6 +84,11 @@ module.exports = async (req, res) => {
     }
     const activities = dbService.getActivities(userId);
     sendJson(res, 200, { success: true, count: activities.length, activities });
+    return;
+  }
+
+  if (!userId) {
+    sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to manage activities.' });
     return;
   }
 

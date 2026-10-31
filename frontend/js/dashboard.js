@@ -14,8 +14,23 @@
     var hist = (window.getSavedHistory && window.getSavedHistory()) || [];
 
     if ($('statCropsCount')) $('statCropsCount').textContent = crops.length;
-    if ($('statActivitiesCount')) $('statActivitiesCount').textContent = acts.length;
+    if ($('statCropsFoot')) {
+      $('statCropsFoot').textContent = crops.length === 0 ? 'No crops added yet' : (crops.length === 1 ? '1 saved crop' : crops.length + ' saved crops');
+    }
+
+    if ($('statActivitiesCount')) {
+      var pending = acts.filter(function(a) { return !a.completed && a.status !== 'Completed'; });
+      $('statActivitiesCount').textContent = pending.length;
+    }
+    if ($('statActivitiesFoot')) {
+      var pendingActs = acts.filter(function(a) { return !a.completed && a.status !== 'Completed'; });
+      $('statActivitiesFoot').textContent = pendingActs.length === 0 ? 'No pending tasks' : (pendingActs.length === 1 ? '1 task pending' : pendingActs.length + ' tasks pending');
+    }
+
     if ($('statScansCount')) $('statScansCount').textContent = hist.length;
+    if ($('statScansFoot')) {
+      $('statScansFoot').textContent = hist.length === 0 ? 'No scans yet' : (hist.length === 1 ? '1 scan report' : hist.length + ' scan reports');
+    }
   }
 
   function askQuickQuestion(questionText) {

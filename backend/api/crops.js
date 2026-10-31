@@ -8,9 +8,9 @@ function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
     const user = dbService.getUserByToken(authHeader);
-    if (user) return user.id;
+    if (user && user.id) return user.id;
   }
-  return 'user_demo';
+  return null;
 }
 
 function sendJson(res, statusCode, data) {
@@ -64,12 +64,20 @@ module.exports = async (req, res) => {
     : (parsedUrl.query.id || '');
 
   if (method === 'GET') {
+    if (!userId) {
+      sendJson(res, 200, { success: true, count: 0, crops: [] });
+      return;
+    }
     const crops = dbService.getCrops(userId);
     sendJson(res, 200, { success: true, count: crops.length, crops });
     return;
   }
 
   if (method === 'POST') {
+    if (!userId) {
+      sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to add crops.' });
+      return;
+    }
     const body = await parseBody(req);
     const newCrop = dbService.addCrop(userId, body);
     sendJson(res, 201, { success: true, message: 'Crop added successfully', crop: newCrop });
@@ -77,6 +85,10 @@ module.exports = async (req, res) => {
   }
 
   if (method === 'DELETE') {
+    if (!userId) {
+      sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to remove crops.' });
+      return;
+    }
     if (!cropId) {
       sendJson(res, 400, { success: false, error: 'Crop ID is required for deletion' });
       return;
