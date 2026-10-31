@@ -200,18 +200,26 @@ function authenticateUser(email, password) {
   return user;
 }
 
+function getSessionSecret() {
+  return process.env.CRON_SECRET || process.env.SESSION_SECRET || 'farmsaathi-secure-session-salt-2026';
+}
+
 function createSession(userId) {
   const db = getDb();
-  const token = 'fs_sess_' + crypto.randomBytes(24).toString('hex');
+  const secret = getSessionSecret();
+  const exp = Date.now() + 30 * 86400000;
+  const payload = Buffer.from(JSON.stringify({ userId, exp })).toString('base64url');
+  const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const token = `fs_sess.${payload}.${sig}`;
+
   const session = {
     token: token,
     userId: userId,
-    expiresAt: new Date(Date.now() + 30 * 86400000).toISOString()
+    expiresAt: new Date(exp).toISOString()
   };
 
-  // Clean expired sessions
   const now = new Date().toISOString();
-  db.sessions = db.sessions.filter(s => s.expiresAt > now);
+  db.sessions = (db.sessions || []).filter(s => s.expiresAt > now);
   db.sessions.push(session);
   saveDb(db);
   return token;
@@ -220,16 +228,60 @@ function createSession(userId) {
 function getUserByToken(token) {
   if (!token) return null;
   const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
+  const secret = getSessionSecret();
+
+  // 1. Verify stateless HMAC signed token (works across all serverless lambda instances)
+  if (cleanToken.startsWith('fs_sess.')) {
+    try {
+      const parts = cleanToken.split('.');
+      if (parts.length === 3) {
+        const payloadStr = parts[1];
+        const signature = parts[2];
+        const expectedSig = crypto.createHmac('sha256', secret).update(payloadStr).digest('base64url');
+        if (signature === expectedSig) {
+          const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString('utf8'));
+          if (payload.exp && payload.exp > Date.now()) {
+            const db = getDb();
+            const user = (db.users || []).find(u => u.id === payload.userId);
+            if (user) {
+              return {
+                id: user.id,
+                fullName: user.fullName,
+                email: user.email,
+                phone: user.phone,
+                createdAt: user.createdAt
+              };
+            }
+            return {
+              id: payload.userId,
+              fullName: 'Farmer',
+              email: '',
+              phone: ''
+            };
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Fallback to in-memory/file session storage
   const db = getDb();
-  const session = db.sessions.find(s => s.token === cleanToken);
+  const session = (db.sessions || []).find(s => s.token === cleanToken);
   if (!session) return null;
 
   if (new Date(session.expiresAt) < new Date()) {
     return null;
   }
 
-  const user = db.users.find(u => u.id === session.userId);
-  if (!user) return null;
+  const user = (db.users || []).find(u => u.id === session.userId);
+  if (!user) {
+    return {
+      id: session.userId,
+      fullName: 'Farmer',
+      email: '',
+      phone: ''
+    };
+  }
 
   return {
     id: user.id,
