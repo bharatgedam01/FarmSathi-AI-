@@ -1,11 +1,28 @@
 // FarmSaathi AI — Farmer Profile API Route
 // Handles retrieving and saving farmer land and crop profile records.
 
+const crypto = require('crypto');
 const dbService = require('../services/dbService');
 
 function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
+    const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (cleanToken.startsWith('fs_sess.')) {
+      try {
+        const parts = cleanToken.split('.');
+        if (parts.length === 3) {
+          const secret = dbService.getSessionSecret ? dbService.getSessionSecret() : (process.env.SESSION_SECRET || process.env.CRON_SECRET || 'farmsaathi-secure-session-salt-2026');
+          const expectedSig = crypto.createHmac('sha256', secret).update(parts[1]).digest('base64url');
+          if (parts[2] === expectedSig) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+            if (payload.exp && payload.exp > Date.now()) {
+              return payload.userId;
+            }
+          }
+        }
+      } catch (e) {}
+    }
     const user = dbService.getUserByToken(authHeader);
     if (user && user.id) return user.id;
   }
@@ -54,26 +71,30 @@ module.exports = async (req, res) => {
   const userId = getAuthUserId(req);
   const method = req.method.toUpperCase();
 
-  if (method === 'GET') {
-    if (!userId) {
-      sendJson(res, 200, { success: true, profile: null });
+  try {
+    if (method === 'GET') {
+      if (!userId) {
+        sendJson(res, 200, { success: true, profile: null });
+        return;
+      }
+      const profile = await dbService.getProfile(userId);
+      sendJson(res, 200, { success: true, profile });
       return;
     }
-    const profile = dbService.getProfile(userId);
-    sendJson(res, 200, { success: true, profile });
-    return;
-  }
 
-  if (method === 'POST' || method === 'PUT') {
-    if (!userId) {
-      sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to save profile.' });
+    if (method === 'POST' || method === 'PUT') {
+      if (!userId) {
+        sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to save profile.' });
+        return;
+      }
+      const body = await parseBody(req);
+      const updated = await dbService.saveProfile(userId, body);
+      sendJson(res, 200, { success: true, message: 'Profile updated successfully', profile: updated });
       return;
     }
-    const body = await parseBody(req);
-    const updated = dbService.saveProfile(userId, body);
-    sendJson(res, 200, { success: true, message: 'Profile updated successfully', profile: updated });
-    return;
-  }
 
-  sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+  } catch (err) {
+    sendJson(res, 500, { success: false, error: err.message });
+  }
 };

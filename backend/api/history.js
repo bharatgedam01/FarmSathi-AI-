@@ -2,11 +2,28 @@
 // Handles listing, saving, and deleting crop health analyses.
 
 const url = require('url');
+const crypto = require('crypto');
 const dbService = require('../services/dbService');
 
 function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
+    const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (cleanToken.startsWith('fs_sess.')) {
+      try {
+        const parts = cleanToken.split('.');
+        if (parts.length === 3) {
+          const secret = dbService.getSessionSecret ? dbService.getSessionSecret() : (process.env.SESSION_SECRET || process.env.CRON_SECRET || 'farmsaathi-secure-session-salt-2026');
+          const expectedSig = crypto.createHmac('sha256', secret).update(parts[1]).digest('base64url');
+          if (parts[2] === expectedSig) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+            if (payload.exp && payload.exp > Date.now()) {
+              return payload.userId;
+            }
+          }
+        }
+      } catch (e) {}
+    }
     const user = dbService.getUserByToken(authHeader);
     if (user && user.id) return user.id;
   }
@@ -62,38 +79,42 @@ module.exports = async (req, res) => {
     ? parts[parts.length - 1]
     : (parsedUrl.query.id || '');
 
-  if (method === 'GET') {
-    if (!userId) {
-      sendJson(res, 200, { success: true, count: 0, analyses: [] });
+  try {
+    if (method === 'GET') {
+      if (!userId) {
+        sendJson(res, 200, { success: true, count: 0, analyses: [] });
+        return;
+      }
+      const list = await dbService.getAnalyses(userId);
+      sendJson(res, 200, { success: true, count: list.length, analyses: list });
       return;
     }
-    const list = dbService.getAnalyses(userId);
-    sendJson(res, 200, { success: true, count: list.length, analyses: list });
-    return;
-  }
 
-  if (!userId) {
-    sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to save scan history.' });
-    return;
-  }
-
-  if (method === 'POST') {
-    const body = await parseBody(req);
-    const record = dbService.addAnalysis(userId, body);
-    sendJson(res, 201, { success: true, message: 'Analysis saved successfully', record });
-    return;
-  }
-
-  if (method === 'DELETE') {
-    if (scanId) {
-      const deleted = dbService.deleteAnalysis(userId, scanId);
-      sendJson(res, 200, { success: deleted, message: deleted ? 'Analysis scan removed' : 'Analysis not found' });
-    } else {
-      dbService.clearAnalyses(userId);
-      sendJson(res, 200, { success: true, message: 'Analysis history cleared' });
+    if (!userId) {
+      sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to save scan history.' });
+      return;
     }
-    return;
-  }
 
-  sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    if (method === 'POST') {
+      const body = await parseBody(req);
+      const record = await dbService.addAnalysis(userId, body);
+      sendJson(res, 201, { success: true, message: 'Analysis saved successfully', record });
+      return;
+    }
+
+    if (method === 'DELETE') {
+      if (scanId) {
+        const deleted = await dbService.deleteAnalysis(userId, scanId);
+        sendJson(res, 200, { success: deleted, message: deleted ? 'Analysis scan removed' : 'Analysis not found' });
+      } else {
+        await dbService.clearAnalyses(userId);
+        sendJson(res, 200, { success: true, message: 'Analysis history cleared' });
+      }
+      return;
+    }
+
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+  } catch (err) {
+    sendJson(res, 500, { success: false, error: err.message });
+  }
 };

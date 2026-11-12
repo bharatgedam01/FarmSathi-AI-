@@ -420,24 +420,32 @@
     if (!sb || !userId) return null;
 
     var now = new Date().toISOString();
+    // Generate a TEXT id matching the backend schema (id TEXT PRIMARY KEY, no default)
+    var cropId = crop.id || ('crop_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
     var cropRow = {
+      id: cropId,
       user_id: userId,
       crop_name: crop.name || crop.cropName,
       variety: crop.variety || '',
       field_name: crop.plot || crop.fieldName || 'Plot A',
       sowing_date: crop.sowing_date || crop.sowingDate || now.slice(0, 10),
       growth_stage: crop.stage || crop.growthStage || 'Vegetative',
-      area: crop.area ? parseFloat(crop.area) : null,
-      notes: crop.notes || ''
+      area: crop.area ? String(crop.area) : null,
+      notes: crop.notes || '',
+      created_at: now,
+      updated_at: now
     };
 
     var saved = null;
     try {
       var res = await sb.from('crops').insert(cropRow).select().single();
       if (!res.error) saved = res.data;
-    } catch (e) {}
+      else console.warn('Supabase crops insert error:', res.error.message || JSON.stringify(res.error));
+    } catch (e) {
+      console.warn('Supabase saveCrop exception:', e.message);
+    }
 
-    // Mirror to farm_records
+    // Mirror to farm_records (if table exists)
     try {
       var recRes = await sb.from('farm_records').insert({
         user_id: userId,

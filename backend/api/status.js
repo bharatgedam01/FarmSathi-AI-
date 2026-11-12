@@ -1,5 +1,6 @@
 // FarmSaathi AI — Status & Health API Route
 // Reports backend health, system status, and connected services.
+// Strictly exposes only public metadata. Never returns SUPABASE_SERVICE_ROLE_KEY or password secrets.
 
 const dbService = require('../services/dbService');
 const aiService = require('../services/aiService');
@@ -22,10 +23,12 @@ module.exports = async (req, res) => {
 
   let stats = {};
   try {
-    stats = dbService.getStats();
+    stats = await dbService.getStats();
   } catch (e) {
-    stats = { note: 'Serverless deployment mode' };
+    stats = { note: 'Statistics query unavailable', error: e.message };
   }
+
+  const isSupabase = dbService.isSupabaseMode ? dbService.isSupabaseMode() : false;
 
   const responseData = {
     success: true,
@@ -41,7 +44,8 @@ module.exports = async (req, res) => {
     visionModel: hasAiKey ? visionModel : 'Unconfigured (Awaiting API Key)',
     weatherService: 'Open-Meteo REST API (Live Synced)',
     mandiService: process.env.DATA_GOV_IN_API_KEY ? 'Data.gov.in Live Mandi API' : 'Verified APMC Mandi Bulletins',
-    cloudDatabase: 'Supabase (Configured client-side via project URL & anon key)',
+    storageEngine: isSupabase ? 'Supabase PostgreSQL Cloud Database' : 'Persistent JSON Database (Zero-Dependency)',
+    supabaseConfigured: Boolean(process.env.SUPABASE_URL),
     supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
     stats: stats

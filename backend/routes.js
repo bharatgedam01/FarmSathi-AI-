@@ -10,6 +10,24 @@ const weatherService = require('./services/weatherService');
 const schemeService = require('./services/schemeService');
 
 // Helper to send JSON responses
+function getTodayIST() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
+function isPastDateIST(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return false;
+  const cleanDate = dateStr.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+    return cleanDate < getTodayIST();
+  }
+  return false;
+}
+
 function sendJson(res, statusCode, data) {
   const payload = JSON.stringify(data);
   res.writeHead(statusCode, {
@@ -156,7 +174,7 @@ async function handleApiRequest(req, res) {
     // 1. SYSTEM & HEALTH STATUS
     // -------------------------------------------------------------
     if (pathname === '/api/status' || pathname === '/api/health') {
-      const stats = db.getStats();
+      const stats = await db.getStats();
       const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim() !== '');
       const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== '');
       const hasAiKey = hasGeminiKey || hasOpenAiKey;
@@ -176,6 +194,8 @@ async function handleApiRequest(req, res) {
         chatModel: hasAiKey ? chatModel : 'Unconfigured (Awaiting GEMINI_API_KEY)',
         visionConfigured: hasAiKey,
         visionModel: hasAiKey ? chatModel : 'Unconfigured (Awaiting GEMINI_API_KEY)',
+        storageEngine: process.env.STORAGE_ENGINE || 'local',
+        supabaseConfigured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY),
         supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
         supabaseAnonKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
         stats: stats
@@ -195,9 +215,9 @@ async function handleApiRequest(req, res) {
         return true;
       }
       try {
-        const newUser = db.createUser(fullName, email, password, phone);
+        const newUser = await db.createUser(fullName, email, password, phone);
         const token = db.createSession(newUser.id);
-        const profile = db.getProfile(newUser.id);
+        const profile = await db.getProfile(newUser.id);
         sendJson(res, 201, {
           success: true,
           message: 'Account created successfully',
@@ -218,9 +238,9 @@ async function handleApiRequest(req, res) {
         return true;
       }
       try {
-        const authUser = db.authenticateUser(email, password);
+        const authUser = await db.authenticateUser(email, password);
         const token = db.createSession(authUser.id);
-        const profile = db.getProfile(authUser.id);
+        const profile = await db.getProfile(authUser.id);
         sendJson(res, 200, {
           success: true,
           message: 'Logged in successfully',
@@ -248,16 +268,16 @@ async function handleApiRequest(req, res) {
           success: true,
           authenticated: false,
           user: user,
-          profile: db.getProfile('user_demo')
+          profile: await db.getProfile('user_demo')
         });
         return true;
       }
-      const verified = db.getUserByToken(authHeader);
+      const verified = await db.getUserByToken(authHeader);
       if (!verified) {
         sendJson(res, 401, { success: false, error: 'Session expired or invalid' });
         return true;
       }
-      const profile = db.getProfile(verified.id);
+      const profile = await db.getProfile(verified.id);
       sendJson(res, 200, {
         success: true,
         authenticated: true,
@@ -272,12 +292,12 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     if (pathname === '/api/profile') {
       if (method === 'GET') {
-        const profile = db.getProfile(user.id);
+        const profile = await db.getProfile(user.id);
         sendJson(res, 200, { success: true, profile: profile });
         return true;
       }
       if (method === 'POST' || method === 'PUT') {
-        const updated = db.saveProfile(user.id, body);
+        const updated = await db.saveProfile(user.id, body);
         sendJson(res, 200, { success: true, message: 'Profile updated', profile: updated });
         return true;
       }
@@ -288,12 +308,24 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     if (pathname === '/api/crops') {
       if (method === 'GET') {
-        const crops = db.getCrops(user.id);
+        const crops = await db.getCrops(user.id);
         sendJson(res, 200, { success: true, crops: crops, count: crops.length });
         return true;
       }
       if (method === 'POST') {
-        const newCrop = db.addCrop(user.id, body);
+        if (!user.id || user.id === 'anonymous') {
+          sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to add crops.' });
+          return true;
+        }
+        const sowingDate = body.sowingDate || body.sowing_date;
+        if (sowingDate && isPastDateIST(sowingDate)) {
+          sendJson(res, 400, {
+            success: false,
+            error: 'Past dates are not allowed. Please select today or a future date (Asia/Kolkata).'
+          });
+          return true;
+        }
+        const newCrop = await db.addCrop(user.id, body);
         sendJson(res, 201, { success: true, message: 'Crop added', crop: newCrop });
         return true;
       }
@@ -302,7 +334,11 @@ async function handleApiRequest(req, res) {
     if (pathname.startsWith('/api/crops/')) {
       const cropId = pathname.replace('/api/crops/', '');
       if (method === 'DELETE') {
-        const deleted = db.deleteCrop(user.id, cropId);
+        if (!user.id || user.id === 'anonymous') {
+          sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to remove crops.' });
+          return true;
+        }
+        const deleted = await db.deleteCrop(user.id, cropId);
         sendJson(res, 200, { success: deleted, message: deleted ? 'Crop removed' : 'Crop not found' });
         return true;
       }
@@ -313,12 +349,24 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     if (pathname === '/api/activities') {
       if (method === 'GET') {
-        const activities = db.getActivities(user.id);
+        const activities = await db.getActivities(user.id);
         sendJson(res, 200, { success: true, activities: activities, count: activities.length });
         return true;
       }
       if (method === 'POST') {
-        const newAct = db.addActivity(user.id, body);
+        if (!user.id || user.id === 'anonymous') {
+          sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to add activities.' });
+          return true;
+        }
+        const actDate = body.date || body.activity_date;
+        if (actDate && isPastDateIST(actDate)) {
+          sendJson(res, 400, {
+            success: false,
+            error: 'Past dates are not allowed. Please select today or a future date (Asia/Kolkata).'
+          });
+          return true;
+        }
+        const newAct = await db.addActivity(user.id, body);
         sendJson(res, 201, { success: true, message: 'Activity scheduled', activity: newAct });
         return true;
       }
@@ -329,14 +377,27 @@ async function handleApiRequest(req, res) {
       const actId = parts[0];
       const subAction = parts[1];
 
+      if (!user.id || user.id === 'anonymous') {
+        sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to manage activities.' });
+        return true;
+      }
+
       if (subAction === 'toggle' && (method === 'POST' || method === 'PATCH')) {
-        const updated = db.toggleActivity(user.id, actId);
+        const updated = await db.toggleActivity(user.id, actId);
         sendJson(res, 200, { success: !!updated, activity: updated });
         return true;
       }
 
       if (method === 'PUT' || method === 'PATCH') {
-        const updated = db.updateActivity(user.id, actId, body);
+        const actDate = body.date || body.activity_date;
+        if (actDate && isPastDateIST(actDate)) {
+          sendJson(res, 400, {
+            success: false,
+            error: 'Past dates are not allowed. Please select today or a future date (Asia/Kolkata).'
+          });
+          return true;
+        }
+        const updated = await db.updateActivity(user.id, actId, body);
         sendJson(res, 200, { success: !!updated, message: updated ? 'Activity updated' : 'Activity not found', activity: updated });
         return true;
       }
@@ -353,7 +414,7 @@ async function handleApiRequest(req, res) {
       }
 
       if (method === 'DELETE') {
-        const deleted = db.deleteActivity(user.id, actId);
+        const deleted = await db.deleteActivity(user.id, actId);
         sendJson(res, 200, { success: deleted, message: deleted ? 'Activity removed' : 'Activity not found' });
         return true;
       }
@@ -364,17 +425,17 @@ async function handleApiRequest(req, res) {
     // -------------------------------------------------------------
     if (pathname === '/api/history' || pathname === '/api/analyses') {
       if (method === 'GET') {
-        const list = db.getAnalyses(user.id);
+        const list = await db.getAnalyses(user.id);
         sendJson(res, 200, { success: true, analyses: list, count: list.length });
         return true;
       }
       if (method === 'POST') {
-        const record = db.addAnalysis(user.id, body);
+        const record = await db.addAnalysis(user.id, body);
         sendJson(res, 201, { success: true, message: 'Analysis saved', record: record });
         return true;
       }
       if (method === 'DELETE') {
-        db.clearAnalyses(user.id);
+        await db.clearAnalyses(user.id);
         sendJson(res, 200, { success: true, message: 'History cleared' });
         return true;
       }
@@ -383,7 +444,7 @@ async function handleApiRequest(req, res) {
     if (pathname.startsWith('/api/history/') || pathname.startsWith('/api/analyses/')) {
       const scanId = pathname.replace(/^\/api\/(history|analyses)\//, '');
       if (method === 'DELETE') {
-        const deleted = db.deleteAnalysis(user.id, scanId);
+        const deleted = await db.deleteAnalysis(user.id, scanId);
         sendJson(res, 200, { success: deleted, message: deleted ? 'Scan removed' : 'Scan not found' });
         return true;
       }
@@ -393,27 +454,26 @@ async function handleApiRequest(req, res) {
     // 7. CHAT, ANALYZE, MANDI ENDPOINTS
     // -------------------------------------------------------------
     if (pathname === '/api/chat' && method === 'POST') {
-      const message = String((body && body.message) || '').trim();
-      if (!message) {
-        sendJson(res, 400, { success: false, error: 'Please enter a farming question.' });
-        return true;
+      // Delegate to api/chat.js which applies fertilizerCalc and history context extraction
+      const chatHandler = require('./api/chat');
+      // Inject parsed body and authenticated user name into request so chat.js can use them
+      req.body = Object.assign({}, body);
+      if (!req.body.profile) req.body.profile = {};
+      if (!req.body.profile.full_name || req.body.profile.full_name === 'Rahul Patil') {
+        req.body.profile.full_name = (user && user.fullName) || req.body.profile.full_name || '';
       }
-      const clientProfile = Object.assign({}, body.profile || {});
-      if (!clientProfile.full_name || clientProfile.full_name === 'Rahul Patil') {
-        clientProfile.full_name = (user && user.fullName) || '';
-      }
-      const chatRes = await aiService.askChat(message, body.language || 'en', clientProfile, body.history || []);
-      sendJson(res, 200, { 
-        success: !chatRes.missingConfig, 
-        missingConfig: Boolean(chatRes.missingConfig),
-        answer: chatRes.answer, 
-        mode: chatRes.mode 
-      });
+      await chatHandler(req, res);
       return true;
     }
 
     if (pathname === '/api/analyze' && method === 'POST') {
       const image = (body && (body.image || body.imageBase64 || body.photo)) || null;
+
+      // Guard: reject early if no image was provided
+      if (!image) {
+        sendJson(res, 400, { success: false, error: 'No image provided. Please upload a crop photo for analysis.' });
+        return true;
+      }
       const cropName = (body && body.cropName) || '';
       const fileName = (body && body.fileName) || 'crop_leaf.jpg';
       const language = (body && body.language) || 'en';
@@ -439,7 +499,23 @@ async function handleApiRequest(req, res) {
         }
       }
 
-      const analyzeRes = await aiService.analyzeCropPhoto(image, 'image/jpeg', cropName, fileName, language);
+      let analyzeRes;
+      try {
+        analyzeRes = await aiService.analyzeCropPhoto(image, 'image/jpeg', cropName, fileName, language);
+      } catch (aiErr) {
+        console.error('AI analyze error:', aiErr.message);
+        const isNetworkErr = aiErr.message && (aiErr.message.includes('fetch failed') || aiErr.message.includes('ENOTFOUND'));
+        sendJson(res, 200, {
+          success: false,
+          error: aiErr.message || 'AI vision service error.',
+          report: isNetworkErr
+            ? '⚠️ **AI vision service is temporarily unreachable.** Please check your API key and internet connection.'
+            : `⚠️ **AI Error:** ${aiErr.message}`,
+          imageUrl: savedImageUrl || null,
+          mode: 'error'
+        });
+        return true;
+      }
       sendJson(res, 200, { 
         success: !analyzeRes.missingConfig, 
         missingConfig: Boolean(analyzeRes.missingConfig),
@@ -462,14 +538,29 @@ async function handleApiRequest(req, res) {
     }
 
     // -------------------------------------------------------------
-    // 8. RESILIENT WEATHER PROXY ENDPOINT
+    // 8. RESILIENT WEATHER PROXY ENDPOINT (NO FAKE DATA)
     // -------------------------------------------------------------
     if (pathname === '/api/weather') {
-      const city = query.city || query.location || 'Gadchiroli';
-      const lat = query.lat;
-      const lon = query.lon;
-      const weatherData = await weatherService.getWeatherData({ city, lat, lon });
-      sendJson(res, 200, weatherData);
+      const weatherApiHandler = require('./api/weather');
+      await weatherApiHandler(req, res);
+      return true;
+    }
+
+    // -------------------------------------------------------------
+    // 8B. ALL INDIA LOCATION & GPS REVERSE GEOCODING SERVICE
+    // -------------------------------------------------------------
+    if (pathname === '/api/location') {
+      const locationApiHandler = require('./api/location');
+      await locationApiHandler(req, res);
+      return true;
+    }
+
+    // -------------------------------------------------------------
+    // 8C. OPEN-METEO GEOCODING PROXY (All-India city search, no key)
+    // -------------------------------------------------------------
+    if (pathname === '/api/geocode' && method === 'GET') {
+      const geocodeHandler = require('./api/geocode');
+      await geocodeHandler(req, res);
       return true;
     }
 
@@ -477,7 +568,13 @@ async function handleApiRequest(req, res) {
     // 9. AUTOMATED GOVERNMENT SCHEMES & MONITORING ENDPOINTS
     // -------------------------------------------------------------
     if (pathname === '/api/schemes' && method === 'GET') {
-      const userProfile = db.getProfile(user.id);
+      // getProfile may fail if Supabase is unreachable — degrade gracefully
+      let userProfile = null;
+      try {
+        userProfile = user ? await db.getProfile(user.id) : null;
+      } catch (profileErr) {
+        console.warn('schemes: could not load user profile (Supabase unavailable):', profileErr.message);
+      }
       const schemes = schemeService.getSchemes({
         category: query.category,
         state: query.state,

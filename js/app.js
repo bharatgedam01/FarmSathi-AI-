@@ -47,7 +47,7 @@
   window.$ = window.$ || $;
 
   // ============================================================================
-  // MULTILINGUAL DICTIONARY (English, Hindi, Marathi)
+  // MULTILINGUAL DICTIONARY (All 12 Indian Languages)
   // ============================================================================
   var I18N = {
     en: {
@@ -65,7 +65,7 @@
       nav_help: 'Help & Helplines',
       nav_settings: 'Settings',
       hero_title: 'Smarter decisions.\nHealthier harvests.',
-      hero_desc: 'Manage your farm plots, track weather, check verified mandi rates, and diagnose crop health in English, Hindi, and Marathi.',
+      hero_desc: 'Manage your farm plots, track weather, check verified mandi rates, and diagnose crop health in all major Indian languages.',
       stat_crops: 'Active Crops',
       stat_weather: 'Live Weather',
       stat_scans: 'Crop Scans',
@@ -90,7 +90,7 @@
       nav_help: 'सहायता एवं हेल्पलाइन',
       nav_settings: 'सेटिंग्स एवं प्रणाली',
       hero_title: 'सही निर्णय।\nबेहतर पैदावार।',
-      hero_desc: 'अपने खेत की जानकारी दर्ज करें, मौसम देखें, देश भर की मंडियों के भाव जानें और हिंदी, मराठी व अंग्रेजी में फसल रोगों की पहचान करें।',
+      hero_desc: 'अपने खेत की जानकारी दर्ज करें, मौसम देखें, देश भर की मंडियों के भाव जानें और फसल रोगों की सटीक पहचान करें।',
       stat_crops: 'सक्रिय फसलें',
       stat_weather: 'वर्तमान मौसम',
       stat_scans: 'रोग जांच रिपोर्ट',
@@ -115,7 +115,7 @@
       nav_help: 'मदत व हेल्पलाइन',
       nav_settings: 'सेटिंग्ज व आरोग्य',
       hero_title: 'योग्य नियोजन।\nउत्तम उत्पादन।',
-      hero_desc: 'आपल्या शेतीचे नियोजन करा, अचूक हवामान पहा, कृषी उत्पन्न बाजार समित्यांचे थेट दर जाणून घ्या आणि पिकांवरील रोग व कीड नियंत्रण समजून घ्या.',
+      hero_desc: 'आपल्या शेतीचे नियोजन करा, अचूक हवामान पहा, कृषी उत्पन्न बाजार समित्यांचे थेट दर जाणून घ्या आणि पिकांवरील रोग नियंत्रण समजून घ्या.',
       stat_crops: 'सध्याची पिके',
       stat_weather: 'स्थानिक हवामान',
       stat_scans: 'रोग तपासणी अहवाल',
@@ -124,11 +124,242 @@
       delete_confirm: 'तुम्हाला खात्री आहे का हा रेकॉर्ड काढून टाकायचा आहे?',
       empty_records: 'कोणतीही नोंद उपलब्ध नाही.',
       empty_crops: 'अद्याप कोणतेही पीक जोडलेले नाही. सुरुवात करण्यासाठी आपले पहिले पीक जोडा.'
+    },
+    te: {
+      app_title: 'ఫార్మ్‌సాథీ AI — స్మార్ట్ రైతు సహాయ వేదిక',
+      nav_workspace: 'రైతు కార్యక్షేత్రం',
+      nav_dashboard: 'డాష్‌బోర్డ్',
+      nav_profile: 'రైతు ప్రొఫైల్',
+      nav_crops: 'నా పొలాలు & పంటలు',
+      nav_assistant: 'ఫార్మ్‌సాథీ AIని అడగండి',
+      nav_intelligence: 'పంట ఆరోగ్యం & స్కానర్',
+      nav_weather: 'వాతావరణం & హెచ్చరికలు',
+      nav_market: 'మార్కెట్ ధరలు (మండి రేట్లు)',
+      nav_activities: 'వ్యవసాయ పనులు & రిమైండర్లు',
+      nav_history: 'విశ్లేషణ చరిత్ర',
+      nav_help: 'సహాయం & హెల్ప్‌లైన్లు',
+      nav_settings: 'సెట్టింగ్‌లు',
+      hero_title: 'తెలివైన నిర్ణయాలు.\nఆరోగ్యకరమైన పంటలు.',
+      hero_desc: 'మీ పొలాలను నిర్వహించండి, లైవ్ వాతావరణాన్ని చూడండి, ధృవీకరించబడిన మార్కెట్ ధరలను తెలుసుకోండి మరియు పంట రోగాలను నిర్ధారించండి.',
+      stat_crops: 'ప్రస్తుత పంటలు',
+      stat_weather: 'వాతావరణం',
+      stat_scans: 'పంట స్కాన్లు',
+      stat_activities: 'రిమైండర్లు',
+      save_success: 'విజయవంతంగా సేవ్ చేయబడింది ✓',
+      delete_confirm: 'మీరు ఖచ్చితంగా ఈ రికార్డును తొలగించాలనుకుంటున్నారా?',
+      empty_records: 'ఎలాంటి రికార్డులు కనుగొనబడలేదు.',
+      empty_crops: 'ఇంకా పంటలు చేర్చబడలేదు. ప్రారంభించడానికి మీ మొదటి పంటను జోడించండి.'
+    },
+    kn: {
+      app_title: 'ಫಾರ್ಮ್‌ಸಾಥಿ AI — ಸ್ಮಾರ್ಟ್ ರೈತ ಸಹಾಯಕ ವೇದಿಕೆ',
+      nav_workspace: 'ರೈತ ಕಾರ್ಯಕ್ಷೇತ್ರ',
+      nav_dashboard: 'ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
+      nav_profile: 'ರೈತ ಪ್ರೊಫೈಲ್',
+      nav_crops: 'ನನ್ನ ಜಮೀನು & ಬೆಳೆಗಳು',
+      nav_assistant: 'ಫಾರ್ಮ್‌ಸಾಥಿ AI ಕೇಳಿ',
+      nav_intelligence: 'ಬೆಳೆ ಆರೋಗ್ಯ ತಪಾಸಣೆ',
+      nav_weather: 'ಹವಾಮಾನ & ಎಚ್ಚರಿಕೆಗಳು',
+      nav_market: 'ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳು (ಮಂಡಿ ದರ)',
+      nav_activities: 'ಕೃಷಿ ಕಾರ್ಯಗಳು & ಜ್ಞಾಪನೆಗಳು',
+      nav_history: 'ಪರಿಶೀಲನೆ ಇತಿಹಾಸ',
+      nav_help: 'ಸಹಾಯವಾಣಿ & ಬೆಂಬಲ',
+      nav_settings: 'ಸೆಟ್ಟಿಂಗ್‌ಗಳು',
+      hero_title: 'ಬುದ್ಧಿವಂತ ನಿರ್ಧಾರಗಳು.\nಉತ್ತಮ ಇಳುವರಿ.',
+      hero_desc: 'ನಿಮ್ಮ ಜಮೀನನ್ನು ನಿರ್ವಹಿಸಿ, ನೈಜ ಹವಾಮಾನ ತಿಳಿಯಿರಿ, ಅಧಿಕೃತ ಎಪಿಎಂಸಿ ಮಂಡಿ ದರಗಳನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತು ಬೆಳೆ ರೋಗಗಳನ್ನು ಸುಲಭವಾಗಿ ಗುರುತಿಸಿ.',
+      stat_crops: 'ಸಕ್ರಿಯ ಬೆಳೆಗಳು',
+      stat_weather: 'ಪ್ರಸ್ತುತ ಹವಾಮಾನ',
+      stat_scans: 'ಬೆಳೆ ಸ್ಕ್ಯಾನ್‌ಗಳು',
+      stat_activities: 'ಕಾರ್ಯ ಜ್ಞಾಪನೆಗಳು',
+      save_success: 'ಯಶಸ್ವಿಯಾಗಿ ಉಳಿಸಲಾಗಿದೆ ✓',
+      delete_confirm: 'ನೀವು ಖಚಿತವಾಗಿ ಈ ದಾಖಲೆಯನ್ನು ಅಳಿಸಲು ಬಯಸುವಿರಾ?',
+      empty_records: 'ಯಾವುದೇ ದಾಖಲೆಗಳು ಕಂಡುಬಂದಿಲ್ಲ.',
+      empty_crops: 'ಇನ್ನೂ ಯಾವುದೇ ಬೆಳೆಗಳನ್ನು ಸೇರಿಸಲಾಗಿಲ್ಲ. ಪ್ರಾರಂಭಿಸಲು ನಿಮ್ಮ ಮೊದಲ ಬೆಳೆಯನ್ನು ಸೇರಿಸಿ.'
+    },
+    gu: {
+      app_title: 'ફાર્મસાથી AI — સ્માર્ટ ખેડૂત સહાયક મંચ',
+      nav_workspace: 'ખેડૂત કાર્યક્ષેત્ર',
+      nav_dashboard: 'ડેશબોર્ડ',
+      nav_profile: 'ખેડૂત પ્રોફાઇલ',
+      nav_crops: 'મારા ખેતર અને પાક',
+      nav_assistant: 'ફાર્મસાથી AI ને પૂછો',
+      nav_intelligence: 'પાક સ્વાસ્થ્ય સ્કેનર',
+      nav_weather: 'હવામાન અને ચેતવણીઓ',
+      nav_market: 'માર્કેટ યાર્ડ ભાવ (મંડી)',
+      nav_activities: 'ખેતી કામ અને રીમાઇન્ડર',
+      nav_history: 'તપાસ ઇતિહાસ',
+      nav_help: 'સહાય અને હેલ્પલાઇન',
+      nav_settings: 'સેટિંગ્સ',
+      hero_title: 'યોગ્ય નિર્ણયો.\nશ્રેષ્ઠ ઉત્પાદન.',
+      hero_desc: 'તમારા ખેતરનું આયોજન કરો, ચોક્કસ હવામાન જુઓ, માર્કેટ યાર્ડના તાજા ભાવ જાણો અને પાકના રોગોનું સચોટ નિદાન કરો.',
+      stat_crops: 'સક્રિય પાક',
+      stat_weather: 'સ્થાનિક હવામાન',
+      stat_scans: 'રોગ તપાસ રિપોર્ટ',
+      stat_activities: 'કામની યાદી',
+      save_success: 'સફળતાપૂર્વક સાચવવામાં આવ્યું ✓',
+      delete_confirm: 'શું તમે ખરેખર આ રેકોર્ડ કાઢી નાખવા માંગો છો?',
+      empty_records: 'કોઈ રેકોર્ડ મળ્યા નથી.',
+      empty_crops: 'હજી સુધી કોઈ પાક ઉમેરવામાં આવ્યો નથી. શરૂઆત કરવા માટે તમારો પ્રથમ પાક ઉમેરો.'
+    },
+    pa: {
+      app_title: 'ਫਾਰਮਸਾਥੀ AI — ਸਮਾਰਟ ਕਿਸਾਨ ਸਹਾਇਤਾ ਮੰਚ',
+      nav_workspace: 'ਕਿਸਾਨ ਵਰਕਸਪੇਸ',
+      nav_dashboard: 'ਡੈਸ਼ਬੋਰਡ',
+      nav_profile: 'ਕਿਸਾਨ ਪ੍ਰੋਫਾਈਲ',
+      nav_crops: 'ਮੇਰੇ ਖੇਤ ਅਤੇ ਫਸਲਾਂ',
+      nav_assistant: 'ਫਾਰਮਸਾਥੀ AI ਤੋਂ ਪੁੱਛੋ',
+      nav_intelligence: 'ਫਸਲ ਸਿਹਤ ਜਾਂਚ',
+      nav_weather: 'ਮੌਸਮ ਅਤੇ ਚੇਤਾਵਨੀਆਂ',
+      nav_market: 'ਮੰਡੀ ਦੇ ਭਾਅ',
+      nav_activities: 'ਖੇਤੀਬਾੜੀ ਕੰਮ ਅਤੇ ਯਾਦ-ਪੱਤਰ',
+      nav_history: 'ਜਾਂਚ ਇਤਿਹਾਸ',
+      nav_help: 'ਮਦਦ ਅਤੇ ਹੈਲਪਲਾਈਨ',
+      nav_settings: 'ਸੈਟਿੰਗਾਂ',
+      hero_title: 'ਸਮਝਦਾਰ ਫੈਸਲੇ।\nਬਿਹਤਰ ਝਾੜ।',
+      hero_desc: 'ਆਪਣੇ ਖੇਤਾਂ ਦਾ ਪ੍ਰਬੰਧ ਕਰੋ, ਅਸਲ ਮੌਸਮ ਵੇਖੋ, ਮੰਡੀਆਂ ਦੇ ਤਾਜ਼ਾ ਰੇਟ ਜਾਣੋ ਅਤੇ ਫਸਲੀ ਬਿਮਾਰੀਆਂ ਦੀ ਸਹੀ ਪਛਾਣ ਕਰੋ।',
+      stat_crops: 'ਮੌਜੂਦਾ ਫਸਲਾਂ',
+      stat_weather: 'ਮੌਜੂਦਾ ਮੌਸਮ',
+      stat_scans: 'ਸਕੈਨ ਰਿਪੋਰਟਾਂ',
+      stat_activities: 'ਯਾਦ-ਪੱਤਰ',
+      save_success: 'ਸਫਲਤਾਪੂਰਵਕ ਸੰਭਾਲਿਆ ਗਿਆ ✓',
+      delete_confirm: 'ਕੀ ਤੁਸੀਂ ਵਾਕਈ ਇਹ ਰਿਕਾਰਡ ਮਿਟਾਉਣਾ ਚਾਹੁੰਦੇ ਹੋ?',
+      empty_records: 'ਕੋਈ ਰਿਕਾਰਡ ਨਹੀਂ ਮਿਲਿਆ।',
+      empty_crops: 'ਅਜੇ ਕੋਈ ਫਸਲ ਸ਼ਾਮਲ ਨਹੀਂ ਕੀਤੀ ਗਈ। ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਆਪਣੀ ਪਹਿਲੀ ਫਸਲ ਸ਼ਾਮਲ ਕਰੋ।'
+    },
+    ta: {
+      app_title: 'பார்ம்சாதி AI — நவீன உழவர் உதவி தளம்',
+      nav_workspace: 'விவசாயி பணியிடம்',
+      nav_dashboard: 'முகப்பு பலகை',
+      nav_profile: 'விவசாயி சுயவிவரம்',
+      nav_crops: 'எனது பண்ணை & பயிர்கள்',
+      nav_assistant: 'பார்ம்சாதி AI-யிடம் கேளுங்கள்',
+      nav_intelligence: 'பயிர் ஆரோக்கிய நுண்ணறிவு',
+      nav_weather: 'வானிலை & எச்சரிக்கைகள்',
+      nav_market: 'சந்தை விலைகள் (மண்டி)',
+      nav_activities: 'பண்ணை பணிகள் & நினைவூட்டல்கள்',
+      nav_history: 'ஆய்வு வரலாறு',
+      nav_help: 'உதவி & தொலைபேசி எண்கள்',
+      nav_settings: 'அமைப்புகள்',
+      hero_title: 'புத்திசாலித்தனமான முடிவுகள்.\nசிறந்த விளைச்சல்.',
+      hero_desc: 'உங்கள் பண்ணைகளை நிர்வகியுங்கள், நேரடி வானிலை அறியுங்கள், உழவர் சந்தை விலைகளை பாருங்கள் மற்றும் பயிர் நோய்களை எளிதில் கண்டறியுங்கள்.',
+      stat_crops: 'செயலில் உள்ள பயிர்கள்',
+      stat_weather: 'நேரடி வானிலை',
+      stat_scans: 'பயிர் ஸ்கேன்கள்',
+      stat_activities: 'நினைவூட்டல்கள்',
+      save_success: 'வெற்றிகரமாக சேமிக்கப்பட்டது ✓',
+      delete_confirm: 'இந்த பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?',
+      empty_records: 'பதிவுகள் எதுவும் இல்லை.',
+      empty_crops: 'பயிர்கள் எதுவும் இன்னும் சேர்க்கப்படவில்லை. தொடங்க உங்கள் முதல் பயிரைச் சேர்க்கவும்.'
+    },
+    bn: {
+      app_title: 'ফার্মসাথী AI — আধুনিক কৃষক সহায়তা প্ল্যাটফর্ম',
+      nav_workspace: 'কৃষক ওয়ার্কস্পেস',
+      nav_dashboard: 'ড্যাশবোর্ড',
+      nav_profile: 'কৃষক প্রোফাইল',
+      nav_crops: 'আমার খামার ও ফসল',
+      nav_assistant: 'ফার্মসাথী AI-কে জিজ্ঞাসা করুন',
+      nav_intelligence: 'ফসল স্বাস্থ্য স্ক্যানার',
+      nav_weather: 'আবহাওয়া ও পূর্বাভাস',
+      nav_market: 'মান্ডি দর (বাজার দর)',
+      nav_activities: 'কৃষি কাজ ও অনুস্মারক',
+      nav_history: 'পরীক্ষা ইতিহাস',
+      nav_help: 'সাহায্য ও হেল্পলাইন',
+      nav_settings: 'সেটিংস',
+      hero_title: 'সঠিক সিদ্ধান্ত।\nউন্নত ফলন।',
+      hero_desc: 'আপনার ফসলের যত্ন নিন, লাইভ আবহাওয়া দেখুন, বিভিন্ন মান্ডির তাজা দাম জানুন এবং ফসলের রোগ নির্ণয় করুন।',
+      stat_crops: 'সক্রিয় ফসল',
+      stat_weather: 'বর্তমান আবহাওয়া',
+      stat_scans: 'ফসল স্ক্যান',
+      stat_activities: 'কাজের অনুস্মারক',
+      save_success: 'সফলভাবে সংরক্ষিত হয়েছে ✓',
+      delete_confirm: 'আপনি কি নিশ্চিতভাবে এই রেকর্ডটি মুছে ফেলতে চান?',
+      empty_records: 'কোনো তথ্য পাওয়া যায়নি।',
+      empty_crops: 'এখনও কোনো ফসল যোগ করা হয়নি। শুরু করতে আপনার প্রথম ফসলটি যোগ করুন।'
+    },
+    ml: {
+      app_title: 'ഫാംസാഥി AI — സ്മാർട്ട് കർഷക സഹായ പ്ലാറ്റ്‌ഫോം',
+      nav_workspace: 'കർഷക വർക്ക്‌സ്‌പേസ്',
+      nav_dashboard: 'ഡാഷ്‌ബോർഡ്',
+      nav_profile: 'കർഷക പ്രൊഫൈൽ',
+      nav_crops: 'എന്റെ കൃഷിയിടങ്ങളും വിളകളും',
+      nav_assistant: 'ഫാംസാഥി AI-യോട് ചോദിക്കൂ',
+      nav_intelligence: 'വിള ആരോഗ്യ പരിശോധന',
+      nav_weather: 'കാലാവസ്ഥ & മുന്നറിയിപ്പുകൾ',
+      nav_market: 'വിപണി വിലകൾ (മാർക്കറ്റ്)',
+      nav_activities: 'കാർഷിക ജോലികൾ & ഓർമ്മപ്പെടുത്തലുകൾ',
+      nav_history: 'പരിശോധനാ ചരിത്രം',
+      nav_help: 'സഹായം & ഹെൽപ്പ്‌ലൈൻ',
+      nav_settings: 'ക്രമീകരണങ്ങൾ',
+      hero_title: 'മികച്ച തീരുമാനങ്ങൾ.\nനല്ല വിളവെടുപ്പ്.',
+      hero_desc: 'നിങ്ങളുടെ കൃഷിയിടങ്ങൾ കൈകാര്യം ചെയ്യുക, കൃത്യമായ കാലാവസ്ഥ കാണുക, വിപണി വിലകൾ അറിയുക, വിള രോഗങ്ങൾ കണ്ടെത്തുക.',
+      stat_crops: 'സജീവ വിളകൾ',
+      stat_weather: 'കാലാവസ്ഥ',
+      stat_scans: 'വിള സ്കാനുകൾ',
+      stat_activities: 'ഓർമ്മപ്പെടുത്തലുകൾ',
+      save_success: 'വിജയകരമായി സൂക്ഷിച്ചു ✓',
+      delete_confirm: 'ഈ രേഖ നീക്കം ചെയ്യാൻ തീർച്ചയാണോ?',
+      empty_records: 'രേഖകളൊന്നും കണ്ടെത്തിയില്ല.',
+      empty_crops: 'ഇതുവരെ വിളകളൊന്നും ചേർത്തിട്ടില്ല. ആരംഭിക്കാൻ നിങ്ങളുടെ ആദ്യത്തെ വിള ചേർക്കുക.'
+    },
+    or: {
+      app_title: 'ଫାର୍ମସାଥୀ AI — ସ୍ମାର୍ଟ କୃଷକ ସହାୟତା ମଞ୍ଚ',
+      nav_workspace: 'କୃଷକ କାର୍ଯ୍ୟକ୍ଷେତ୍ର',
+      nav_dashboard: 'ଡ୍ୟାସବୋର୍ଡ',
+      nav_profile: 'କୃଷକ ପ୍ରୋଫାଇଲ୍',
+      nav_crops: 'ମୋର କ୍ଷେତ ଏବଂ ଫସଲ',
+      nav_assistant: 'ଫାର୍ମସାଥୀ AI କୁ ପଚାରନ୍ତୁ',
+      nav_intelligence: 'ଫସଲ ସ୍ୱାସ୍ଥ୍ୟ ସ୍କାନର୍',
+      nav_weather: 'ପାଣିପାଗ ଏବଂ ସତର୍କତା',
+      nav_market: 'ମଣ୍ଡି ଦର (ବଜାର ଦର)',
+      nav_activities: 'କୃଷି କାର୍ଯ୍ୟ ଓ ରିମାଇଣ୍ଡର',
+      nav_history: 'ପରୀକ୍ଷା ଇତିହାସ',
+      nav_help: 'ସହାୟତା ଏବଂ ହେଲ୍ପଲାଇନ',
+      nav_settings: 'ସେଟିଙ୍ଗ୍ସ',
+      hero_title: 'ସଠିକ୍ ନିଷ୍ପତ୍ତି।\nଉତ୍ତମ ଅମଳ।',
+      hero_desc: 'ଆପଣଙ୍କ କ୍ଷେତର ପରିଚାଳନା କରନ୍ତୁ, ପ୍ରକୃତ ପାଣିପାଗ ଜାଣନ୍ତୁ, ମଣ୍ଡିର ତାଜା ଦର ଦେଖନ୍ତୁ ଏବଂ ଫସଲ ରୋଗ ନିର୍ଣ୍ଣୟ କରନ୍ତୁ।',
+      stat_crops: 'ସକ୍ରିୟ ଫସଲ',
+      stat_weather: 'ପାଣିପାଗ',
+      stat_scans: 'ଫସଲ ସ୍କାନ୍',
+      stat_activities: 'କାର୍ଯ୍ୟ ସୂଚୀ',
+      save_success: 'ସଫଳତାର ସହ ସାଇତା ଗଲା ✓',
+      delete_confirm: 'ଆପଣ ଏହି ରେକର୍ଡଟିକୁ ନିଶ୍ଚିତ ଭାବେ କାଟିବାକୁ ଚାହୁଁଛନ୍ତି କି?',
+      empty_records: 'କୌଣସି ବିବରଣୀ ମିଳିଲା ନାହିଁ।',
+      empty_crops: 'ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଫସଲ ଯୋଡ଼ା ଯାଇନାହିଁ। ଆରମ୍ଭ କରିବା ପାଇଁ ଆପଣଙ୍କ ପ୍ରଥମ ଫସଲ ଯୋଡନ୍ତୁ।'
+    },
+    ur: {
+      app_title: 'فارم ساتھی AI — اسمارٹ کسان پلیٹ فارم',
+      nav_workspace: 'کسان ورک اسپیس',
+      nav_dashboard: 'ڈیش بورڈ',
+      nav_profile: 'کسان پروفائل',
+      nav_crops: 'میرے کھیت اور فصلیں',
+      nav_assistant: 'فارم ساتھی AI سے پوچھیں',
+      nav_intelligence: 'فصل کی صحت کا معائنہ',
+      nav_weather: 'موسم اور پیش گوئی',
+      nav_market: 'منڈی کے بھاؤ',
+      nav_activities: 'زرعی سرگرمیاں اور یاد دہانی',
+      nav_history: 'معائنہ ریکارڈ',
+      nav_help: 'مدد اور ہیلپ لائن',
+      nav_settings: 'ترتیبات',
+      hero_title: 'بہتر فیصلے،\nبہترین پیداوار۔',
+      hero_desc: 'اپنے کھیتوں کا انتظام کریں، براہ راست موسم دیکھیں، تصدیق شدہ منڈی ریٹ جانیں اور فصل کے امراض کی تشخیص کریں۔',
+      stat_crops: 'موجودہ فصلیں',
+      stat_weather: 'موجودہ موسم',
+      stat_scans: 'فصل اسکین',
+      stat_activities: 'یاد دہانیاں',
+      save_success: 'کامیابی سے محفوظ ہو گیا ✓',
+      delete_confirm: 'کیا آپ واقعی اس ریکارڈ کو حذف کرنا چاہتے ہیں؟',
+      empty_records: 'کوئی ریکارڈ نہیں ملا۔',
+      empty_crops: 'ابھی تک کوئی فصل شامل نہیں کی گئی۔ شروع کرنے کے لیے اپنی پہلی فصل شامل کریں۔'
     }
   };
 
   function getLang() {
-    return AppStorage.get('preferred_language', 'en');
+    var stored = AppStorage.get('preferred_language', null);
+    if (stored) return stored;
+    try {
+      var ls = localStorage.getItem('fs_preferred_language');
+      if (ls) return ls;
+    } catch (e) {}
+    return 'en';
   }
 
   function t(key) {
@@ -139,6 +370,9 @@
   function applyLanguage(lang) {
     if (!lang) lang = 'en';
     AppStorage.set('preferred_language', lang);
+    try {
+      localStorage.setItem('fs_preferred_language', lang);
+    } catch (e) {}
 
     var selector = $('langSelector');
     if (selector) selector.value = lang;
@@ -340,12 +574,17 @@
   // ============================================================================
   var chatConversationHistory = [];
 
-  function appendChatBubble(text, sender) {
+  function appendChatBubble(text, sender, lang) {
     var container = $('chatMessages');
     if (!container) return;
 
     var bubble = document.createElement('div');
     bubble.className = 'chat-bubble ' + (sender === 'user' ? 'user' : 'assistant');
+    // Apply RTL direction for Urdu language responses
+    if (lang === 'ur' || (sender === 'assistant' && getLang && getLang() === 'ur')) {
+      bubble.setAttribute('dir', 'rtl');
+      bubble.style.textAlign = 'right';
+    }
     bubble.innerHTML = text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     container.appendChild(bubble);
     container.scrollTop = container.scrollHeight;
@@ -414,7 +653,7 @@
       }
 
       if (res && res.data && res.data.answer) {
-        appendChatBubble(res.data.answer, 'assistant');
+        appendChatBubble(res.data.answer, 'assistant', lang);
         chatConversationHistory.push({ role: 'assistant', content: res.data.answer });
         if (statusEl) {
           statusEl.className = 'status-msg';

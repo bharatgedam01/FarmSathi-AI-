@@ -8,6 +8,25 @@
     return document.getElementById(id);
   }
 
+  function getTodayIST() {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  }
+
+  function formatIndianDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    var clean = String(dateStr).slice(0, 10);
+    var parts = clean.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
+    return dateStr;
+  }
+
   function getCropsKey() {
     var user = window.AuthModule && window.AuthModule.getCurrentUser();
     return (user ? user.id + '_' : '') + 'crops_list';
@@ -45,7 +64,7 @@
       row.innerHTML =
         '<div class="list-row-main">' +
         '  <strong>🌾 ' + (c.name || c.cropName) + (c.variety ? ' — ' + c.variety : '') + '</strong>' +
-        '  <small>' + (c.plot || c.fieldName || 'Farm plot') + ' · Sown: ' + (c.sowing_date || c.sowingDate || 'N/A') + ' · Stage: <span class="badge badge-ok">' + (c.stage || c.growthStage || 'Vegetative') + '</span>' + (c.area ? ' · Area: ' + c.area + ' Acres' : '') + '</small>' +
+        '  <small>' + (c.plot || c.fieldName || 'Farm plot') + ' · Sown: ' + formatIndianDate(c.sowing_date || c.sowingDate) + ' · Stage: <span class="badge badge-ok">' + (c.stage || c.growthStage || 'Vegetative') + '</span>' + (c.area ? ' · Area: ' + c.area + ' Acres' : '') + '</small>' +
         (c.notes ? '  <small style="margin-top: 4px; color: #475a4d;">📝 ' + c.notes + '</small>' : '') +
         '</div>' +
         '<div>' +
@@ -59,6 +78,17 @@
     if (e && e.preventDefault) e.preventDefault();
 
     var statusEl = $('cropStatusMsg');
+    var sowingInputVal = ($('cropSowingDate') && $('cropSowingDate').value) || '';
+    var todayIST = getTodayIST();
+
+    if (sowingInputVal && sowingInputVal < todayIST) {
+      if (statusEl) {
+        statusEl.className = 'status-msg show error';
+        statusEl.textContent = '⚠️ Sowing date cannot be in the past. Please select today (' + formatIndianDate(todayIST) + ') or a future date.';
+      }
+      return;
+    }
+
     if (statusEl) {
       statusEl.className = 'status-msg show ok';
       statusEl.textContent = 'Saving crop record…';
@@ -71,8 +101,8 @@
       variety: ($('cropVariety') && $('cropVariety').value.trim()) || '',
       plot: ($('cropPlot') && $('cropPlot').value.trim()) || 'Farm Plot',
       fieldName: ($('cropPlot') && $('cropPlot').value.trim()) || 'Farm Plot',
-      sowing_date: ($('cropSowingDate') && $('cropSowingDate').value) || new Date().toISOString().slice(0, 10),
-      sowingDate: ($('cropSowingDate') && $('cropSowingDate').value) || new Date().toISOString().slice(0, 10),
+      sowing_date: sowingInputVal || todayIST,
+      sowingDate: sowingInputVal || todayIST,
       stage: ($('cropStage') && $('cropStage').value) || 'Vegetative',
       growthStage: ($('cropStage') && $('cropStage').value) || 'Vegetative',
       area: ($('cropArea') && $('cropArea').value) ? parseFloat($('cropArea').value) : null,
@@ -84,7 +114,13 @@
     crops.unshift(newCrop);
     setSavedCrops(crops);
 
-    if ($('formAddCrop')) $('formAddCrop').reset();
+    if ($('formAddCrop')) {
+      $('formAddCrop').reset();
+      if ($('cropSowingDate')) {
+        $('cropSowingDate').min = todayIST;
+        $('cropSowingDate').value = todayIST;
+      }
+    }
     renderCropsList();
 
     var user = window.AuthModule && window.AuthModule.getCurrentUser();
@@ -112,11 +148,32 @@
           newCrop.id = res.data.crop.id;
           setSavedCrops(crops);
           syncedCloud = true;
+        } else if (res.status === 401) {
+          // Not authenticated — remove the locally-saved crop and show error
+          var idx = crops.indexOf(newCrop);
+          if (idx !== -1) crops.splice(idx, 1);
+          setSavedCrops(crops);
+          renderCropsList();
+          if (statusEl) {
+            statusEl.className = 'status-msg show error';
+            statusEl.textContent = '⚠️ Please sign in to save crops. Your session may have expired.';
+          }
+          return;
+        } else if (!res.ok) {
+          var backendErr = (res.data && (res.data.error || res.data.message)) || ('Server error ' + res.status);
+          console.warn('Backend crop save failed:', backendErr);
+          if (statusEl) {
+            statusEl.className = 'status-msg show error';
+            statusEl.textContent = '⚠️ Cloud save failed: ' + backendErr + '. Crop saved locally only.';
+          }
         }
-      } catch (err) {}
+      } catch (err) {
+        console.warn('Backend crop save error:', err.message);
+      }
     }
 
-    if (statusEl) {
+    if (statusEl && statusEl.className.includes('error') === false) {
+      statusEl.className = 'status-msg show ok';
       statusEl.textContent = syncedCloud
         ? 'Crop saved & synced across cloud account ✓'
         : 'Crop record added to local device ✓';
@@ -148,6 +205,21 @@
         } catch (err) {}
       }
     }
+  }
+
+  function initCrops() {
+    var sowingInput = $('cropSowingDate');
+    if (sowingInput) {
+      var today = getTodayIST();
+      sowingInput.min = today;
+      if (!sowingInput.value) sowingInput.value = today;
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCrops);
+  } else {
+    setTimeout(initCrops, 50);
   }
 
   // Export module

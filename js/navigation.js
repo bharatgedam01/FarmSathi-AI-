@@ -82,10 +82,14 @@
       window.renderSettings();
     } else if (pageId === 'schemes' && window.GovSchemesModule && typeof window.GovSchemesModule.loadSchemesData === 'function') {
       window.GovSchemesModule.loadSchemesData();
-    } else if (pageId === 'weather' && typeof window.fetchWeather === 'function') {
-      var searchInput = document.getElementById('weatherSearchLocation');
-      if (searchInput && searchInput.value) {
-        window.fetchWeather(searchInput.value);
+    } else if (pageId === 'weather') {
+      if (window.WeatherModule && typeof window.WeatherModule.invalidateMapSize === 'function') {
+        window.WeatherModule.invalidateMapSize();
+        setTimeout(function() {
+          if (window.WeatherModule && typeof window.WeatherModule.invalidateMapSize === 'function') {
+            window.WeatherModule.invalidateMapSize();
+          }
+        }, 150);
       }
     }
   };

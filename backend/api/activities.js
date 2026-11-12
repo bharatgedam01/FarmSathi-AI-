@@ -2,15 +2,50 @@
 // Handles farmer activity reminders: listing, scheduling, toggling, and deleting tasks.
 
 const url = require('url');
+const crypto = require('crypto');
 const dbService = require('../services/dbService');
 
 function getAuthUserId(req) {
   const authHeader = req.headers['authorization'] || '';
   if (authHeader) {
+    const cleanToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (cleanToken.startsWith('fs_sess.')) {
+      try {
+        const parts = cleanToken.split('.');
+        if (parts.length === 3) {
+          const secret = dbService.getSessionSecret ? dbService.getSessionSecret() : (process.env.SESSION_SECRET || process.env.CRON_SECRET || 'farmsaathi-secure-session-salt-2026');
+          const expectedSig = crypto.createHmac('sha256', secret).update(parts[1]).digest('base64url');
+          if (parts[2] === expectedSig) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+            if (payload.exp && payload.exp > Date.now()) {
+              return payload.userId;
+            }
+          }
+        }
+      } catch (e) {}
+    }
     const user = dbService.getUserByToken(authHeader);
     if (user && user.id) return user.id;
   }
   return null;
+}
+
+function getTodayIST() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
+function isPastDateIST(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return false;
+  const cleanDate = dateStr.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+    return cleanDate < getTodayIST();
+  }
+  return false;
 }
 
 function sendJson(res, statusCode, data) {
@@ -58,7 +93,6 @@ module.exports = async (req, res) => {
   const pathname = parsedUrl.pathname.replace(/\/$/, '');
 
   const parts = pathname.split('/');
-  // /api/activities/:id or /api/activities/:id/toggle
   const isToggle = parts.includes('toggle');
   let actId = '';
   if (parts.length > 3 && parts[parts.length - 1] !== 'activities') {
@@ -67,64 +101,83 @@ module.exports = async (req, res) => {
     actId = parsedUrl.query.id;
   }
 
-  if (method === 'GET') {
-    if (!userId) {
-      sendJson(res, 200, { success: true, count: 0, activities: [] });
-      return;
-    }
-    if (actId) {
-      const activities = dbService.getActivities(userId);
-      const act = activities.find(a => String(a.id) === String(actId));
-      if (act) {
-        sendJson(res, 200, { success: true, activity: act });
-      } else {
-        sendJson(res, 404, { success: false, error: 'Activity not found' });
+  try {
+    if (method === 'GET') {
+      if (!userId) {
+        sendJson(res, 200, { success: true, count: 0, activities: [] });
+        return;
       }
+      const activities = await dbService.getActivities(userId);
+      if (actId) {
+        const act = activities.find(a => String(a.id) === String(actId));
+        if (act) {
+          sendJson(res, 200, { success: true, activity: act });
+        } else {
+          sendJson(res, 404, { success: false, error: 'Activity not found' });
+        }
+        return;
+      }
+      sendJson(res, 200, { success: true, count: activities.length, activities });
       return;
     }
-    const activities = dbService.getActivities(userId);
-    sendJson(res, 200, { success: true, count: activities.length, activities });
-    return;
-  }
 
-  if (!userId) {
-    sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to manage activities.' });
-    return;
-  }
-
-  if (method === 'POST' && !isToggle) {
-    const body = await parseBody(req);
-    const newAct = dbService.addActivity(userId, body);
-    sendJson(res, 201, { success: true, message: 'Activity scheduled successfully', activity: newAct });
-    return;
-  }
-
-  if (method === 'PUT' || (method === 'PATCH' && !isToggle)) {
-    if (!actId) {
-      sendJson(res, 400, { success: false, error: 'Activity ID is required for update' });
+    if (!userId) {
+      sendJson(res, 401, { success: false, error: 'Unauthorized. Please sign in to manage activities.' });
       return;
     }
-    const body = await parseBody(req);
-    const updated = dbService.updateActivity(userId, actId, body);
-    sendJson(res, 200, { success: !!updated, message: updated ? 'Activity updated' : 'Activity not found', activity: updated });
-    return;
-  }
 
-  if (isToggle && (method === 'POST' || method === 'PATCH')) {
-    const updated = dbService.toggleActivity(userId, actId);
-    sendJson(res, 200, { success: !!updated, activity: updated });
-    return;
-  }
-
-  if (method === 'DELETE') {
-    if (!actId) {
-      sendJson(res, 400, { success: false, error: 'Activity ID is required for deletion' });
+    if (method === 'POST' && !isToggle) {
+      const body = await parseBody(req);
+      const actDate = body.date || body.activity_date;
+      if (actDate && isPastDateIST(actDate)) {
+        sendJson(res, 400, {
+          success: false,
+          error: 'Past dates are not allowed. Please select today or a future date (Asia/Kolkata).'
+        });
+        return;
+      }
+      const newAct = await dbService.addActivity(userId, body);
+      sendJson(res, 201, { success: true, message: 'Activity scheduled successfully', activity: newAct });
       return;
     }
-    const deleted = dbService.deleteActivity(userId, actId);
-    sendJson(res, 200, { success: deleted, message: deleted ? 'Activity removed' : 'Activity not found' });
-    return;
-  }
 
-  sendJson(res, 405, { success: false, error: 'Method not allowed' });
+    if (method === 'PUT' || (method === 'PATCH' && !isToggle)) {
+      if (!actId) {
+        sendJson(res, 400, { success: false, error: 'Activity ID is required for update' });
+        return;
+      }
+      const body = await parseBody(req);
+      const actDate = body.date || body.activity_date;
+      if (actDate && isPastDateIST(actDate)) {
+        sendJson(res, 400, {
+          success: false,
+          error: 'Past dates are not allowed. Please select today or a future date (Asia/Kolkata).'
+        });
+        return;
+      }
+      const updated = await dbService.updateActivity(userId, actId, body);
+      sendJson(res, 200, { success: !!updated, message: updated ? 'Activity updated' : 'Activity not found', activity: updated });
+      return;
+    }
+
+    if (isToggle && (method === 'POST' || method === 'PATCH')) {
+      const updated = await dbService.toggleActivity(userId, actId);
+      sendJson(res, 200, { success: !!updated, activity: updated });
+      return;
+    }
+
+    if (method === 'DELETE') {
+      if (!actId) {
+        sendJson(res, 400, { success: false, error: 'Activity ID is required for deletion' });
+        return;
+      }
+      const deleted = await dbService.deleteActivity(userId, actId);
+      sendJson(res, 200, { success: deleted, message: deleted ? 'Activity removed' : 'Activity not found' });
+      return;
+    }
+
+    sendJson(res, 405, { success: false, error: 'Method not allowed' });
+  } catch (err) {
+    sendJson(res, 500, { success: false, error: err.message });
+  }
 };

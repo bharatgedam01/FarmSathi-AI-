@@ -8,6 +8,25 @@
     return document.getElementById(id);
   }
 
+  function getTodayIST() {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  }
+
+  function formatIndianDate(dateStr) {
+    if (!dateStr) return 'N/A';
+    var clean = String(dateStr).slice(0, 10);
+    var parts = clean.split('-');
+    if (parts.length === 3 && parts[0].length === 4) {
+      return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
+    return dateStr;
+  }
+
   function getActivitiesKey() {
     var user = window.AuthModule && window.AuthModule.getCurrentUser();
     return (user ? user.id + '_' : '') + 'activities_list';
@@ -77,7 +96,7 @@
         '    <span class="badge" style="font-weight: 500;">' + a.category + '</span>' +
         '  </div>' +
         '  <small style="margin-top: 4px; display: block; color: var(--muted);">' +
-        '    📅 Date: <b>' + (a.date || 'Scheduled') + '</b>' + farmCropLine +
+        '    📅 Date: <b>' + (formatIndianDate(a.date) || 'Scheduled') + '</b>' + farmCropLine +
         '  </small>' +
         (a.notes ? '  <small style="margin-top: 4px; display: block; color: #475a4d; background: #fafcf8; padding: 4px 8px; border-radius: 4px;">📝 ' + a.notes + '</small>' : '') +
         '</div>' +
@@ -99,6 +118,13 @@
       return;
     }
 
+    var actDateVal = ($('actDate') && $('actDate').value) || '';
+    var todayIST = getTodayIST();
+    if (actDateVal && actDateVal < todayIST) {
+      alert('⚠️ Activity date cannot be in the past. Please select today (' + formatIndianDate(todayIST) + ') or a future date.');
+      return;
+    }
+
     var statusEl = $('actStatusMsg');
     if (statusEl) {
       statusEl.className = 'status-msg show ok';
@@ -109,7 +135,7 @@
       id: 'act_' + Date.now(),
       name: nameVal,
       category: ($('actCategory') && $('actCategory').value) || 'General',
-      date: ($('actDate') && $('actDate').value) || new Date().toISOString().slice(0, 10),
+      date: actDateVal || todayIST,
       farm: ($('actFarm') && $('actFarm').value.trim()) || '',
       crop: ($('actCrop') && $('actCrop').value.trim()) || '',
       notes: ($('actNotes') && $('actNotes').value.trim()) || '',
@@ -121,7 +147,13 @@
     acts.unshift(newAct);
     setSavedActivities(acts);
 
-    if ($('formAddActivity')) $('formAddActivity').reset();
+    if ($('formAddActivity')) {
+      $('formAddActivity').reset();
+      if ($('actDate')) {
+        $('actDate').min = todayIST;
+        $('actDate').value = todayIST;
+      }
+    }
     renderActivitiesList();
 
     var user = window.AuthModule && window.AuthModule.getCurrentUser();
@@ -169,7 +201,10 @@
     if ($('editActId')) $('editActId').value = act.id || '';
     if ($('editActName')) $('editActName').value = act.name || '';
     if ($('editActCategory')) $('editActCategory').value = act.category || 'General';
-    if ($('editActDate')) $('editActDate').value = act.date || '';
+    if ($('editActDate')) {
+      $('editActDate').min = getTodayIST();
+      $('editActDate').value = act.date || getTodayIST();
+    }
     if ($('editActFarm')) $('editActFarm').value = act.farm || '';
     if ($('editActCrop')) $('editActCrop').value = act.crop || '';
     if ($('editActNotes')) $('editActNotes').value = act.notes || '';
@@ -199,10 +234,17 @@
       return;
     }
 
+    var editDateVal = ($('editActDate') && $('editActDate').value) || '';
+    var todayIST = getTodayIST();
+    if (editDateVal && editDateVal < todayIST) {
+      alert('⚠️ Activity date cannot be in the past. Please select today (' + formatIndianDate(todayIST) + ') or a future date.');
+      return;
+    }
+
     var act = acts[idx];
     act.name = ($('editActName') && $('editActName').value.trim()) || act.name;
     act.category = ($('editActCategory') && $('editActCategory').value) || act.category;
-    act.date = ($('editActDate') && $('editActDate').value) || act.date;
+    act.date = editDateVal || act.date;
     act.farm = ($('editActFarm') && $('editActFarm').value.trim()) || '';
     act.crop = ($('editActCrop') && $('editActCrop').value.trim()) || '';
     act.notes = ($('editActNotes') && $('editActNotes').value.trim()) || '';
@@ -278,15 +320,29 @@
     }
   }
 
-  // Bind close on backdrop click for edit modal
-  window.addEventListener('DOMContentLoaded', function() {
+  // Bind close on backdrop click for edit modal and initialize min date
+  function initActivities() {
+    var today = getTodayIST();
+    if ($('actDate')) {
+      $('actDate').min = today;
+      if (!$('actDate').value) $('actDate').value = today;
+    }
+    if ($('editActDate')) {
+      $('editActDate').min = today;
+    }
     var editModal = $('activityEditModal');
     if (editModal) {
       editModal.addEventListener('click', function(e) {
         if (e.target === editModal) closeEditActivityModal();
       });
     }
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initActivities);
+  } else {
+    setTimeout(initActivities, 50);
+  }
 
   // Export module
   window.FarmActivities = {

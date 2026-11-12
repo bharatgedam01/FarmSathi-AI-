@@ -38,8 +38,7 @@
         '<td>' + (r.state || 'India') + '<br><small style="color: var(--muted);">' + (r.district || '') + '</small></td>' +
         '<td><b style="font-size: 15px; color: var(--deep);">₹' + Number(r.modal_price || 0).toLocaleString('en-IN') + '</b> <small>' + (r.unit || '₹/Qtl') + '</small></td>' +
         '<td>₹' + Number(r.min_price || 0).toLocaleString('en-IN') + ' - ₹' + Number(r.max_price || 0).toLocaleString('en-IN') + '</td>' +
-        '<td style="font-weight: 700; color: ' + trendColor + ';">' + trendIcon + '</td>' +
-        '<td><span class="badge" style="font-size: 11.5px; font-weight: 600;">' + formattedDate + '</span></td>';
+        '<td style="font-weight: 700; color: ' + trendColor + ';">' + trendIcon + '</td>';
       tbody.appendChild(tr);
     });
   }
@@ -52,7 +51,7 @@
 
     var q = queryInput ? queryInput.value.trim().toLowerCase() : '';
     var st = stateSelect ? stateSelect.value.trim() : '';
-    var sort = sortSelect ? sortSelect.value : 'date_desc';
+    var sort = (sortSelect && sortSelect.value !== 'date_desc') ? sortSelect.value : 'relevance';
 
     if (refreshBtn) {
       refreshBtn.disabled = true;
@@ -100,51 +99,43 @@
         }
         return;
       }
+
+      // Backend returned success: false — show honest "not available" message
+      if (res && res.data && res.data.success === false) {
+        var tbody2 = $('mandiTableBody');
+        if (tbody2) {
+          tbody2.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted,#888);">' +
+            '⚠️ ' + (res.data.message || 'Live mandi price data is not available. Configure DATA_GOV_IN_API_KEY for real-time Agmarknet prices.') +
+            '</td></tr>';
+        }
+        var badge2 = $('badgeMandiSource');
+        if (badge2) { badge2.textContent = 'Data Unavailable'; badge2.className = 'badge'; }
+        var srcEl2 = $('mandiSourceText');
+        if (srcEl2) { srcEl2.textContent = ''; }
+        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.textContent = '🔄 Refresh'; }
+        return;
+      }
     } catch (e) {
-      console.warn('Backend mandi route notice, using client records fallback:', e.message);
+      console.warn('Backend mandi API error:', e.message);
     }
 
-    // 2. Client fallback filter & sort
-    var list = window.ALL_INDIA_MANDI_FALLBACK || [];
-    var filtered = list.filter(function(item) {
-      var matchesState = !st || st === 'all' || item.state.toLowerCase() === st.toLowerCase();
-      var matchesQuery = !q ||
-        item.crop.toLowerCase().indexOf(q) !== -1 ||
-        item.market.toLowerCase().indexOf(q) !== -1 ||
-        item.district.toLowerCase().indexOf(q) !== -1 ||
-        (item.variety && item.variety.toLowerCase().indexOf(q) !== -1);
-      return matchesState && matchesQuery;
-    });
-
-    if (sort === 'price_desc') {
-      filtered.sort(function(a, b) { return (b.modal_price || 0) - (a.modal_price || 0); });
-    } else if (sort === 'price_asc') {
-      filtered.sort(function(a, b) { return (a.modal_price || 0) - (b.modal_price || 0); });
-    } else if (sort === 'crop_asc') {
-      filtered.sort(function(a, b) { return (a.crop || '').localeCompare(b.crop || ''); });
-    } else {
-      filtered.sort(function(a, b) { return String(b.arrival_date || '').localeCompare(String(a.arrival_date || '')); });
+    // Backend unreachable — show honest "not available" message, never serve old records as current prices
+    var tbodyFallback = $('mandiTableBody');
+    if (tbodyFallback) {
+      tbodyFallback.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted,#888);">' +
+        '⚠️ Live mandi price data is currently unavailable. The server could not be reached. Please check your internet connection and try again.' +
+        '</td></tr>';
     }
-
-    renderMandiTableRows(filtered);
+    var badgeFb = $('badgeMandiSource');
+    if (badgeFb) { badgeFb.textContent = 'Data Unavailable'; badgeFb.className = 'badge'; }
+    var srcFb = $('mandiSourceText');
+    if (srcFb) { srcFb.textContent = ''; }
 
     if (refreshBtn) {
       refreshBtn.disabled = false;
       refreshBtn.textContent = '🔄 Refresh';
     }
   }
-
-  // Verified APMC baseline observations with their authentic historical dates
-  window.ALL_INDIA_MANDI_FALLBACK = [
-    { id: 'mh-1', state: 'Maharashtra', district: 'Gadchiroli', market: 'Gadchiroli APMC', crop: 'Paddy (Dhan)', variety: 'IR-64 / Common', min_price: 2183, max_price: 2360, modal_price: 2280, unit: '₹ / Quintal', arrival_date: '2026-10-12', trend: 'stable' },
-    { id: 'mh-2', state: 'Maharashtra', district: 'Nagpur', market: 'Nagpur (Kalamna) APMC', crop: 'Soybean', variety: 'Yellow (JS-335)', min_price: 4350, max_price: 4750, modal_price: 4580, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'up' },
-    { id: 'mh-3', state: 'Maharashtra', district: 'Nagpur', market: 'Nagpur APMC', crop: 'Cotton (Kapas)', variety: 'Medium Staple', min_price: 6850, max_price: 7500, modal_price: 7210, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'up' },
-    { id: 'mh-4', state: 'Maharashtra', district: 'Nashik', market: 'Lasalgaon APMC', crop: 'Onion (Pyaz)', variety: 'Red / Pol', min_price: 1700, max_price: 2650, modal_price: 2200, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'down' },
-    { id: 'mh-5', state: 'Maharashtra', district: 'Pune', market: 'Pune APMC (Gultekdi)', crop: 'Tomato', variety: 'Hybrid 1057', min_price: 1300, max_price: 1950, modal_price: 1600, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'stable' },
-    { id: 'mp-1', state: 'Madhya Pradesh', district: 'Indore', market: 'Indore APMC', crop: 'Soybean', variety: 'Yellow (JS-9560)', min_price: 4420, max_price: 4810, modal_price: 4620, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'up' },
-    { id: 'gj-1', state: 'Gujarat', district: 'Rajkot', market: 'Rajkot APMC', crop: 'Groundnut (Moongphali)', variety: 'GG-20 Bold', min_price: 5900, max_price: 6750, modal_price: 6350, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'up' },
-    { id: 'pb-1', state: 'Punjab', district: 'Ludhiana', market: 'Khanna APMC', crop: 'Wheat (Gehun)', variety: 'PBW-343', min_price: 2275, max_price: 2450, modal_price: 2350, unit: '₹ / Quintal', arrival_date: '2026-10-13', trend: 'stable' }
-  ];
 
   // Export module
   window.MandiPrices = {

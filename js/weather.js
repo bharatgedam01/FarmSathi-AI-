@@ -1,13 +1,24 @@
-// FarmSaathi AI — Weather & Agricultural Advisories Module
-// Live integration with Open-Meteo REST API, 5-day agro-forecast, spray condition advisories, and GPS lookup.
+// FarmSaathi AI — All India Agricultural Weather Module v2
+// GPS + All-India city search via Open-Meteo Geocoding API (no key required).
+// Map, cascading dropdowns, and village directory REMOVED per user request.
+// Strict rules:
+// - Zero fabricated fallback temperatures.
+// - Zero default city substitutions (no silent Gadchiroli/Pune assumptions).
+// - Transparent model labeling, timestamps, and farmer agronomic advisories.
+// - NWP disclaimer always visible.
 
 (function(window) {
   'use strict';
 
-  function $(id) {
-    return document.getElementById(id);
-  }
+  function $(id) { return document.getElementById(id); }
 
+  // State variables
+  var searchDebounceTimer = null;
+  var currentLat = null;
+  var currentLon = null;
+  var currentLocationName = '';
+
+  // WMO Weather code metadata
   var WEATHER_CODES = {
     0: { label: 'Clear Sky / Sunny', icon: '☀️' },
     1: { label: 'Mainly Clear', icon: '🌤️' },
@@ -16,266 +27,544 @@
     45: { label: 'Foggy / Mist', icon: '🌫️' },
     48: { label: 'Depositing Rime Fog', icon: '🌫️' },
     51: { label: 'Light Drizzle', icon: '🌦️' },
-    53: { label: 'Moderate Drizzle', icon: '🌦️' },
+    53: { label: 'Moderate Drizzle', icon: '🌧️' },
     55: { label: 'Dense Drizzle', icon: '🌧️' },
-    61: { label: 'Slight Rain', icon: '🌧️' },
+    56: { label: 'Freezing Drizzle', icon: '🌨️' },
+    57: { label: 'Dense Freezing Drizzle', icon: '🌨️' },
+    61: { label: 'Slight Rain', icon: '🌦️' },
     63: { label: 'Moderate Rain', icon: '🌧️' },
     65: { label: 'Heavy Rain', icon: '⛈️' },
-    71: { label: 'Slight Snow Fall', icon: '🌨️' },
-    73: { label: 'Moderate Snow Fall', icon: '🌨️' },
-    75: { label: 'Heavy Snow Fall', icon: '❄️' },
-    80: { label: 'Slight Rain Showers', icon: '🌦️' },
+    66: { label: 'Freezing Rain', icon: '🌨️' },
+    67: { label: 'Heavy Freezing Rain', icon: '🌨️' },
+    71: { label: 'Light Snow', icon: '🌨️' },
+    73: { label: 'Moderate Snow', icon: '❄️' },
+    75: { label: 'Heavy Snow', icon: '❄️' },
+    77: { label: 'Snow Grains', icon: '❄️' },
+    80: { label: 'Passing Rain Showers', icon: '🌦️' },
     81: { label: 'Moderate Rain Showers', icon: '🌧️' },
     82: { label: 'Violent Rain Showers', icon: '⛈️' },
-    95: { label: 'Thunderstorm', icon: '⚡' },
-    96: { label: 'Thunderstorm with Hail', icon: '⛈️' }
+    85: { label: 'Light Snow Showers', icon: '🌨️' },
+    86: { label: 'Heavy Snow Showers', icon: '❄️' },
+    95: { label: 'Thunderstorm', icon: '⛈️' },
+    96: { label: 'Thunderstorm with Hail', icon: '⛈️' },
+    99: { label: 'Severe Thunderstorm with Hail', icon: '⛈️' }
   };
 
-  var INDIAN_CITIES_REGISTRY = {
-    'gadchiroli': { name: 'Gadchiroli', state: 'Maharashtra', lat: 20.18, lon: 80.00, temp: 28 },
-    'nagpur': { name: 'Nagpur', state: 'Maharashtra', lat: 21.15, lon: 79.09, temp: 29 },
-    'nashik': { name: 'Nashik', state: 'Maharashtra', lat: 20.00, lon: 73.78, temp: 26 },
-    'pune': { name: 'Pune', state: 'Maharashtra', lat: 18.52, lon: 73.86, temp: 27 },
-    'amravati': { name: 'Amravati', state: 'Maharashtra', lat: 20.93, lon: 77.75, temp: 30 },
-    'chandrapur': { name: 'Chandrapur', state: 'Maharashtra', lat: 19.95, lon: 79.30, temp: 31 },
-    'akola': { name: 'Akola', state: 'Maharashtra', lat: 20.70, lon: 77.01, temp: 31 },
-    'jalgaon': { name: 'Jalgaon', state: 'Maharashtra', lat: 21.00, lon: 75.56, temp: 30 },
-    'kolhapur': { name: 'Kolhapur', state: 'Maharashtra', lat: 16.70, lon: 74.24, temp: 27 },
-    'solapur': { name: 'Solapur', state: 'Maharashtra', lat: 17.66, lon: 75.91, temp: 32 },
-    'aurangabad': { name: 'Chhatrapati Sambhajinagar', state: 'Maharashtra', lat: 19.88, lon: 75.34, temp: 28 },
-    'latur': { name: 'Latur', state: 'Maharashtra', lat: 18.40, lon: 76.58, temp: 29 },
-    'indore': { name: 'Indore', state: 'Madhya Pradesh', lat: 22.72, lon: 75.86, temp: 27 },
-    'bhopal': { name: 'Bhopal', state: 'Madhya Pradesh', lat: 23.26, lon: 77.41, temp: 28 },
-    'rajkot': { name: 'Rajkot', state: 'Gujarat', lat: 22.30, lon: 70.80, temp: 31 },
-    'ahmedabad': { name: 'Ahmedabad', state: 'Gujarat', lat: 23.02, lon: 72.57, temp: 32 },
-    'ludhiana': { name: 'Ludhiana', state: 'Punjab', lat: 30.90, lon: 75.85, temp: 25 },
-    'karnal': { name: 'Karnal', state: 'Haryana', lat: 29.69, lon: 76.98, temp: 26 },
-    'jaipur': { name: 'Jaipur', state: 'Rajasthan', lat: 26.91, lon: 75.79, temp: 29 },
-    'lucknow': { name: 'Lucknow', state: 'Uttar Pradesh', lat: 26.85, lon: 80.95, temp: 27 },
-    'bengaluru': { name: 'Bengaluru', state: 'Karnataka', lat: 12.97, lon: 77.59, temp: 24 },
-    'hyderabad': { name: 'Hyderabad', state: 'Telangana', lat: 17.38, lon: 78.49, temp: 28 },
-    'delhi': { name: 'Delhi', state: 'Delhi', lat: 28.61, lon: 77.21, temp: 28 }
-  };
+  // ---------------------------------------------------------------------------
+  // 1. ALL-INDIA CITY SEARCH (Open-Meteo Geocoding API via backend proxy)
+  // ---------------------------------------------------------------------------
+  function initCitySearch() {
+    var input = $('weatherCitySearch');
+    var resultsBox = $('weatherCityResults');
+    if (!input || !resultsBox) return;
 
-  function renderWeatherDisplay(locName, cur, daily, isLive) {
-    var codeInfo = WEATHER_CODES[cur.weather_code] || { label: 'Clear Sky', icon: '🌤️' };
+    input.addEventListener('input', function() {
+      var query = input.value.trim();
+      clearTimeout(searchDebounceTimer);
 
-    if ($('wTemp')) $('wTemp').textContent = Math.round(cur.temperature_2m) + '°C';
-    if ($('wLocation')) $('wLocation').textContent = locName;
-    if ($('wCondition')) $('wCondition').textContent = codeInfo.label;
-    if ($('wIcon')) $('wIcon').textContent = codeInfo.icon;
-    if ($('wFeelsLike')) $('wFeelsLike').textContent = (cur.apparent_temperature ? Math.round(cur.apparent_temperature) : Math.round(cur.temperature_2m + 1)) + '°C';
-    if ($('wHumidity')) $('wHumidity').textContent = cur.relative_humidity_2m + '%';
-    if ($('wWind')) $('wWind').textContent = cur.wind_speed_10m + ' km/h';
-    if ($('wPrecip')) $('wPrecip').textContent = (cur.precipitation || 0) + ' mm';
-
-    // Update Dashboard Quick Stat
-    if ($('statTemp')) $('statTemp').textContent = Math.round(cur.temperature_2m) + '°C';
-
-    var badge = $('weatherBadgeState');
-    if (badge) {
-      badge.textContent = isLive ? 'Live Open-Meteo Synced ✓' : 'Verified Regional Fallback Model';
-      badge.className = isLive ? 'badge badge-ok' : 'badge badge-warn';
-    }
-
-    // Agricultural Spray & Farming Advisory
-    var advBox = $('weatherAdvisoryBox');
-    if (advBox) {
-      advBox.style.display = 'block';
-      var wind = cur.wind_speed_10m || 0;
-      var precip = cur.precipitation || 0;
-
-      if (precip > 1.0) {
-        advBox.className = 'notice-box';
-        advBox.style.borderLeftColor = 'var(--danger)';
-        advBox.innerHTML = '⚠️ <b>Rain In Progress:</b> Do not spray pesticides or apply urea top-dressing. High risk of chemical run-off and wastage.';
-      } else if (wind > 18) {
-        advBox.className = 'notice-box';
-        advBox.style.borderLeftColor = 'var(--warning)';
-        advBox.innerHTML = '🌬️ <b>High Wind Alert (' + wind + ' km/h):</b> Postpone foliar spraying to prevent drift into neighboring plots.';
-      } else {
-        advBox.className = 'notice-box';
-        advBox.style.borderLeftColor = 'var(--green)';
-        advBox.innerHTML = '🌿 <b>Ideal Field Conditions:</b> Gentle breeze (' + wind + ' km/h) and moderate temperature (' + Math.round(cur.temperature_2m) + '°C). Safe for early morning spraying and irrigation.';
-      }
-    }
-
-    // 5-Day Forecast
-    var forecastContainer = $('forecastContainer');
-    if (forecastContainer && daily && daily.time) {
-      forecastContainer.innerHTML = '';
-      for (var i = 0; i < Math.min(daily.time.length, 5); i++) {
-        var dayDate = daily.time[i];
-        var dayCode = daily.weather_code ? daily.weather_code[i] : 1;
-        var dayInfo = WEATHER_CODES[dayCode] || { label: 'Clear', icon: '🌤️' };
-        var maxT = Math.round(daily.temperature_2m_max[i]);
-        var minT = Math.round(daily.temperature_2m_min[i]);
-        var rainProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : (dayCode >= 51 ? 65 : 10);
-
-        var row = document.createElement('div');
-        row.className = 'list-row';
-        row.innerHTML =
-          '<div style="font-size: 20px; width: 34px;">' + dayInfo.icon + '</div>' +
-          '<div class="list-row-main">' +
-          '  <strong>' + dayDate + ' — ' + dayInfo.label + '</strong>' +
-          '  <small>Rain Chance: <b>' + rainProb + '%</b> · Spray Risk: ' + (rainProb > 40 ? '<span class="badge badge-warn">Avoid Spray</span>' : '<span class="badge badge-ok">Favorable</span>') + '</small>' +
-          '</div>' +
-          '<div>' +
-          '  <b style="font-size: 14px;">' + maxT + '°C</b> <small style="color: var(--muted);">/ ' + minT + '°C</small>' +
-          '</div>';
-        forecastContainer.appendChild(row);
-      }
-    }
-  }
-
-  function renderSeasonalFallbackWeather(cityName) {
-    var clean = String(cityName || 'Gadchiroli').trim().toLowerCase().split(',')[0].trim();
-    var cityData = INDIAN_CITIES_REGISTRY[clean] || { name: cityName || 'Maharashtra', state: 'India', temp: 28 };
-    var baseTemp = cityData.temp || 28;
-
-    var cur = {
-      temperature_2m: baseTemp,
-      relative_humidity_2m: 64,
-      apparent_temperature: baseTemp + 1.2,
-      precipitation: 0.0,
-      wind_speed_10m: 11.4,
-      weather_code: 1
-    };
-
-    var daily = {
-      time: ['Today', 'Tomorrow', 'Day 3', 'Day 4', 'Day 5'],
-      temperature_2m_max: [baseTemp + 2, baseTemp + 1, baseTemp, baseTemp + 3, baseTemp + 2],
-      temperature_2m_min: [baseTemp - 7, baseTemp - 8, baseTemp - 8, baseTemp - 7, baseTemp - 6],
-      weather_code: [1, 2, 61, 0, 1],
-      precipitation_probability_max: [10, 25, 55, 5, 15]
-    };
-
-    renderWeatherDisplay(cityData.name + (cityData.state ? ', ' + cityData.state : ''), cur, daily, false);
-  }
-
-  async function fetchWeather(locationQuery) {
-    var statusEl = $('weatherStatusMsg');
-    if (statusEl) {
-      statusEl.className = 'status-msg show';
-      statusEl.textContent = 'Fetching weather from Open-Meteo…';
-    }
-
-    var query = locationQuery || ($('weatherSearchLocation') && $('weatherSearchLocation').value.trim()) || 'Gadchiroli';
-
-    try {
-      // 1. Try Backend API route /api/weather
-      var apiUrl = '/api/weather?city=' + encodeURIComponent(query);
-      if (query.includes(',')) {
-        var parts = query.split(',');
-        if (!isNaN(parts[0]) && !isNaN(parts[1])) {
-          apiUrl = '/api/weather?lat=' + encodeURIComponent(parts[0].trim()) + '&lon=' + encodeURIComponent(parts[1].trim());
-        }
-      }
-
-      var res = await window.apiRequest(apiUrl, 'GET');
-      if (res.ok && res.data && res.data.success && res.data.current) {
-        renderWeatherDisplay(res.data.city || query, res.data.current, res.data.daily, res.data.isLive !== false);
-        if (statusEl) {
-          statusEl.className = 'status-msg show ok';
-          statusEl.textContent = 'Weather updated for ' + (res.data.city || query) + ' ✓';
-        }
+      if (query.length < 2) {
+        resultsBox.innerHTML = '';
+        resultsBox.classList.remove('show');
         return;
       }
-    } catch (e) {
-      console.warn('Backend weather route unavailable, trying direct Open-Meteo:', e.message);
-    }
 
-    // 2. Direct Open-Meteo fallback
-    try {
-      var clean = query.toLowerCase().split(',')[0].trim();
-      var reg = INDIAN_CITIES_REGISTRY[clean] || { lat: 20.18, lon: 80.00, name: query };
-      var lat = reg.lat;
-      var lon = reg.lon;
-
-      var directUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=5';
-      var omRes = await fetch(directUrl);
-      if (omRes.ok) {
-        var omData = await omRes.json();
-        renderWeatherDisplay(reg.name, omData.current, omData.daily, true);
-        if (statusEl) {
-          statusEl.className = 'status-msg show ok';
-          statusEl.textContent = 'Weather loaded from Open-Meteo for ' + reg.name + ' ✓';
+      searchDebounceTimer = setTimeout(async function() {
+        try {
+          var res = await window.apiRequest('/api/geocode?q=' + encodeURIComponent(query) + '&limit=8', 'GET');
+          if (res.ok && res.data && res.data.results && res.data.results.length > 0) {
+            renderCityResults(res.data.results, resultsBox, input);
+          } else {
+            resultsBox.innerHTML = '<div style="padding: 10px 14px; font-size: 12px; color: var(--muted);">No cities found for "' + query + '". Try a different spelling or city name.</div>';
+            resultsBox.classList.add('show');
+          }
+        } catch (err) {
+          // Ignore transient search error — don't block user
+          console.warn('[Weather] City search error:', err.message);
         }
-        return;
-      }
-    } catch (omErr) {}
+      }, 300);
+    });
 
-    // 3. Fallback
-    renderSeasonalFallbackWeather(query);
-    if (statusEl) {
-      statusEl.className = 'status-msg show ok';
-      statusEl.textContent = 'Showing verified regional weather model for ' + query;
-    }
+    // Enter key submits first result or lat,lon
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var firstItem = resultsBox.querySelector('.weather-autocomplete-item');
+        if (firstItem) firstItem.click();
+      }
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+      if (!input.contains(e.target) && !resultsBox.contains(e.target)) {
+        resultsBox.classList.remove('show');
+      }
+    });
   }
 
-  function handleWeatherSearch(e) {
+  function renderCityResults(results, resultsBox, input) {
+    resultsBox.innerHTML = '';
+
+    results.forEach(function(item) {
+      var div = document.createElement('div');
+      div.className = 'weather-autocomplete-item';
+
+      // Show: "City · State, Country" or just Indian info
+      var subParts = [];
+      if (item.admin2 && item.admin2 !== item.name) subParts.push(item.admin2);
+      if (item.admin1 && item.admin1 !== item.name) subParts.push(item.admin1);
+      if (item.country_code !== 'IN' && item.country) subParts.push(item.country);
+      var latLonStr = item.lat.toFixed(3) + '°N, ' + item.lon.toFixed(3) + '°E';
+
+      div.innerHTML =
+        '<div><strong>' + item.name + '</strong></div>' +
+        '<small style="color: var(--muted);">' + (subParts.join(', ') || item.country || '') + ' · ' + latLonStr + '</small>';
+
+      div.addEventListener('click', function() {
+        resultsBox.classList.remove('show');
+        input.value = item.display || (item.name + (item.admin1 ? ', ' + item.admin1 : ''));
+
+        currentLat = item.lat;
+        currentLon = item.lon;
+        currentLocationName = item.display || item.name;
+
+        fetchWeatherByCoords(currentLat, currentLon, currentLocationName);
+      });
+
+      resultsBox.appendChild(div);
+    });
+
+    resultsBox.classList.add('show');
+  }
+
+  // Search button handler
+  async function handleWeatherSearch(e) {
     if (e && e.preventDefault) e.preventDefault();
-    var val = ($('weatherSearchLocation') && $('weatherSearchLocation').value.trim()) || '';
-    if (val) fetchWeather(val);
-  }
-
-  async function quickCheckWeather(city) {
-    var input = city || ($('quickWeatherInput') && $('quickWeatherInput').value.trim()) || 'Gadchiroli';
-    var resDiv = $('quickWeatherResult');
-    if (resDiv) resDiv.innerHTML = '<span class="badge">Loading live conditions for ' + input + '…</span>';
-
-    await fetchWeather(input);
-
-    var curTemp = ($('wTemp') && $('wTemp').textContent) || '28°C';
-    var cond = ($('wCondition') && $('wCondition').textContent) || 'Clear';
-    var icon = ($('wIcon') && $('wIcon').textContent) || '🌤️';
-
-    if (resDiv) {
-      resDiv.innerHTML =
-        '<div style="display: flex; align-items: center; justify-content: space-between; background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px;">' +
-        '  <div>' +
-        '    <strong>' + icon + ' ' + input + '</strong> · ' + cond + '<br>' +
-        '    <small style="color: var(--muted);">Live Open-Meteo Synced</small>' +
-        '  </div>' +
-        '  <div style="font-size: 20px; font-weight: 850; color: var(--green);">' + curTemp + '</div>' +
-        '</div>';
-    }
-  }
-
-  function getWeatherByGps() {
-    if (!navigator.geolocation) {
-      alert('Geolocation is not supported by your current browser.');
+    var input = $('weatherCitySearch');
+    var val = (input && input.value.trim()) || '';
+    if (!val) {
+      showStatus('Please enter a city or location name to search.', 'error');
       return;
     }
+
+    // Check if input is "lat, lon"
+    if (val.includes(',')) {
+      var parts = val.split(',');
+      if (parts.length === 2 && !isNaN(parts[0].trim()) && !isNaN(parts[1].trim())) {
+        var lat = parseFloat(parts[0].trim());
+        var lon = parseFloat(parts[1].trim());
+        fetchWeatherByCoords(lat, lon, 'Coordinates ' + lat.toFixed(3) + '°N, ' + lon.toFixed(3) + '°E');
+        return;
+      }
+    }
+
+    showStatus('Searching for "' + val + '" across Indian cities…', 'info');
+    try {
+      var res = await window.apiRequest('/api/geocode?q=' + encodeURIComponent(val) + '&limit=1', 'GET');
+      if (res.ok && res.data && res.data.results && res.data.results.length > 0) {
+        var match = res.data.results[0];
+        currentLat = match.lat;
+        currentLon = match.lon;
+        currentLocationName = match.display || match.name;
+        if (input) input.value = currentLocationName;
+        fetchWeatherByCoords(currentLat, currentLon, currentLocationName);
+      } else {
+        showStatus('⚠️ Location "' + val + '" not found. Try a district or city name. Example: Nagpur, Pune, Ludhiana.', 'error');
+      }
+    } catch (err) {
+      showStatus('⚠️ City search failed: ' + err.message, 'error');
+    }
+  }
+
+  // Quick city select from optional quick-select dropdown
+  function onQuickCitySelect(cityName) {
+    if (!cityName) return;
+    var input = $('weatherCitySearch');
+    if (input) input.value = cityName;
+    handleWeatherSearch();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 2. LIVE GPS LOCATION WORKFLOW
+  // ---------------------------------------------------------------------------
+  function getWeatherByGps() {
+    var gpsBtn = $('btnWeatherGps');
+    var gpsAccuracyBadge = $('weatherGpsAccuracyBadge');
+
+    if (!navigator.geolocation) {
+      showStatus('⚠️ Geolocation is not supported by your browser. Please search for your city using the search box above.', 'error');
+      return;
+    }
+
+    if (gpsBtn) {
+      gpsBtn.disabled = true;
+      gpsBtn.innerHTML = '⏳ Reading GPS…';
+    }
+    showStatus('Requesting device GPS coordinates with high accuracy…', 'info');
+
     navigator.geolocation.getCurrentPosition(
-      function(pos) {
+      async function(pos) {
         var lat = pos.coords.latitude;
         var lon = pos.coords.longitude;
-        if ($('weatherSearchLocation')) {
-          $('weatherSearchLocation').value = lat.toFixed(4) + ', ' + lon.toFixed(4);
+        var accuracyMeters = Math.round(pos.coords.accuracy || 0);
+
+        if (gpsBtn) {
+          gpsBtn.disabled = false;
+          gpsBtn.innerHTML = '📍 Use My Live Location (GPS)';
         }
-        fetchWeather(lat + ',' + lon);
+
+        if (gpsAccuracyBadge) {
+          gpsAccuracyBadge.style.display = 'inline-block';
+          gpsAccuracyBadge.textContent = '📍 GPS Active (±' + accuracyMeters + 'm)';
+          gpsAccuracyBadge.style.background = accuracyMeters < 50 ? '#e8f5e9' : '#fff3e0';
+          gpsAccuracyBadge.style.color = accuracyMeters < 50 ? '#1b5e20' : '#e65100';
+        }
+
+        currentLat = lat;
+        currentLon = lon;
+
+        showStatus('GPS acquired [' + lat.toFixed(4) + '°N, ' + lon.toFixed(4) + '°E · ±' + accuracyMeters + 'm]. Fetching forecast…', 'info');
+
+        // Try to resolve location name via Open-Meteo geocoding (reverse lookup by coords via /api/location)
+        var identifiedName = 'GPS Location (' + lat.toFixed(4) + '°N, ' + lon.toFixed(4) + '°E)';
+        try {
+          var rev = await window.apiRequest('/api/location?action=reverse&lat=' + lat + '&lon=' + lon, 'GET');
+          if (rev.ok && rev.data && rev.data.success) {
+            var info = rev.data;
+            identifiedName = info.name +
+              (info.taluka ? ', ' + info.taluka : '') +
+              (info.district ? ', ' + info.district : '') +
+              (info.state ? ', ' + info.state : '');
+            if (info.isApproximate) identifiedName += ' (Nearest)';
+          }
+        } catch (e) {
+          // Keep coordinates-based name if reverse geocode fails
+        }
+
+        currentLocationName = identifiedName;
+        var input = $('weatherCitySearch');
+        if (input) input.value = identifiedName;
+
+        fetchWeatherByCoords(lat, lon, identifiedName, true);
       },
       function(err) {
-        alert('Could not acquire GPS: ' + err.message);
+        if (gpsBtn) {
+          gpsBtn.disabled = false;
+          gpsBtn.innerHTML = '📍 Use My Live Location (GPS)';
+        }
+        var msg;
+        if (err.code === 1) {
+          msg = '📍 Location permission denied. Please allow location access in your browser, or search for your city in the box above.';
+        } else if (err.code === 2) {
+          msg = '📍 GPS signal unavailable. Please ensure device location is enabled, or search for your city above.';
+        } else if (err.code === 3) {
+          msg = '📍 GPS request timed out. Please retry, or search for your city above.';
+        } else {
+          msg = '📍 Could not acquire GPS position. Please search for your city above.';
+        }
+        showStatus(msg, 'error');
+        // STRICT RULE: DO NOT DEFAULT TO PUNE, GADCHIROLI OR ANY HARDCODED CITY.
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0
       }
     );
   }
 
-  // Export module
+  // ---------------------------------------------------------------------------
+  // 3. FETCH WEATHER BY COORDINATES (via backend → Open-Meteo Forecast API)
+  // ---------------------------------------------------------------------------
+  async function fetchWeatherByCoords(lat, lon, label, isGps) {
+    if (lat === undefined || lon === undefined || isNaN(lat) || isNaN(lon)) {
+      showStatus('Valid coordinates are required to fetch weather. Please use GPS or search for your city.', 'error');
+      return;
+    }
+
+    showStatus('Pulling high-resolution forecast from Open-Meteo NWP models…', 'info');
+
+    try {
+      var queryParams = [
+        'lat=' + encodeURIComponent(lat),
+        'lon=' + encodeURIComponent(lon),
+        'city=' + encodeURIComponent(label || 'Farm Location'),
+        'isGps=' + (isGps ? 'true' : 'false')
+      ].join('&');
+
+      var res = await window.apiRequest('/api/weather?' + queryParams, 'GET');
+
+      if (res.ok && res.data && res.data.success) {
+        renderWeatherDisplay(res.data);
+        showStatus('✓ Forecast updated for ' + (res.data.location ? res.data.location.name : label), 'ok');
+      } else {
+        var errMsg = (res.data && res.data.error) || 'Failed to fetch meteorological forecast.';
+        showStatus('⚠️ Weather Service Error: ' + errMsg + ' — Please retry.', 'error');
+      }
+    } catch (err) {
+      showStatus('⚠️ Network error: ' + err.message + '. Please check your connection and retry.', 'error');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. RENDER FULL WEATHER DISPLAY
+  // ---------------------------------------------------------------------------
+  function renderWeatherDisplay(data) {
+    var cur = data.current;
+    var loc = data.location || {};
+    var model = data.model_info || {};
+    var daily = data.daily || [];
+    var hourly = data.hourly || [];
+    var advisories = data.advisories || [];
+
+    // Header & Location Info
+    if ($('wTemp')) $('wTemp').textContent = Math.round(cur.temperature) + '°C';
+    if ($('wLocation')) $('wLocation').textContent = loc.name || 'Selected Location';
+    if ($('wCondition')) $('wCondition').textContent = cur.condition + ' (' + cur.description + ')';
+    if ($('wIcon')) $('wIcon').textContent = cur.icon || '🌤️';
+
+    // Lat/Lon & Elevation
+    if ($('wCoords')) {
+      var elevStr = loc.elevation_meters ? ' · Elevation: ' + loc.elevation_meters + 'm' : '';
+      $('wCoords').textContent = 'Coordinates: ' + loc.lat.toFixed(4) + '°N, ' + loc.lon.toFixed(4) + '°E' + elevStr;
+    }
+
+    // Agro-Meteorology Stats Grid
+    if ($('wFeelsLike')) $('wFeelsLike').textContent = Math.round(cur.feels_like) + '°C';
+    if ($('wHumidity')) $('wHumidity').textContent = cur.humidity + '%';
+    if ($('wWind')) $('wWind').textContent = cur.wind_speed.toFixed(1) + ' km/h (' + cur.wind_direction_compass + ')';
+    if ($('wGusts')) $('wGusts').textContent = cur.wind_gusts ? cur.wind_gusts.toFixed(1) + ' km/h' : '--';
+    if ($('wCloudCover')) $('wCloudCover').textContent = cur.cloud_cover + '%';
+    if ($('wPressure')) $('wPressure').textContent = cur.pressure_msl ? Math.round(cur.pressure_msl) + ' hPa' : '--';
+
+    // Precipitation & Rain Probability
+    var todayRainProb = (daily.length > 0 && daily[0].precipitation_probability_max) || 0;
+    if ($('wPrecip')) {
+      $('wPrecip').textContent = (cur.precipitation || 0) + ' mm / ' + todayRainProb + '%';
+    }
+
+    // Temperature Range (Max/Min today)
+    if ($('wTempRange') && daily.length > 0) {
+      $('wTempRange').textContent = Math.round(daily[0].temp_max) + '° / ' + Math.round(daily[0].temp_min) + '°C';
+    }
+
+    // Sunrise & Sunset
+    if ($('wSunTimes') && daily.length > 0 && daily[0].sunrise) {
+      var sunriseTime = daily[0].sunrise.slice(11, 16);
+      var sunsetTime = daily[0].sunset.slice(11, 16);
+      $('wSunTimes').textContent = sunriseTime + ' / ' + sunsetTime;
+    }
+
+    // Update Dashboard Overview Quick Stat
+    if ($('statTemp')) {
+      $('statTemp').textContent = Math.round(cur.temperature) + '°C';
+    }
+
+    // Pressure (optional field)
+    if ($('wPressure')) $('wPressure').textContent = cur.pressure_msl ? Math.round(cur.pressure_msl) + ' hPa' : '--';
+
+    // Badges & Transparency
+    var badgeState = $('weatherBadgeState');
+    if (badgeState) {
+      badgeState.textContent = data.isLive ? 'Live NWP Synced ✓' : (data.isCached ? 'Cached (' + (data.cacheAgeSeconds || 0) + 's ago)' : 'Model Forecast');
+      badgeState.className = data.isLive ? 'badge badge-ok' : 'badge badge-warn';
+    }
+
+    var badgeModel = $('weatherBadgeModel');
+    if (badgeModel && model.provider) {
+      badgeModel.textContent = model.provider;
+    }
+
+    if ($('wModelUpdated') && model.observation_updated_at) {
+      $('wModelUpdated').textContent = model.observation_updated_at;
+    }
+    if ($('wGridRes') && model.grid_resolution_km) {
+      $('wGridRes').textContent = model.grid_resolution_km;
+    }
+
+    // Observation timestamp from API
+    if ($('wObservedTime') && cur.observed_time) {
+      $('wObservedTime').textContent = cur.observed_time + ' IST';
+    }
+
+    // Last fetched wall clock time (local)
+    if ($('wLastFetched')) {
+      $('wLastFetched').textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }) + ' (device time)';
+    }
+
+    // Render Agronomic Advisories
+    renderAgroAdvisories(advisories);
+
+    // Render 24-Hour Hourly Weather Carousel
+    renderHourlyForecast(hourly);
+
+    // Render 7-Day Precision Agricultural Forecast
+    renderDailyForecast(daily);
+  }
+
+  function renderAgroAdvisories(advisories) {
+    var container = $('weatherAdvisoriesContainer');
+    if (!container) return;
+
+    if (!advisories || advisories.length === 0) {
+      container.innerHTML = '<div style="font-size: 12px; color: var(--muted); padding: 8px;">No critical weather advisories at this time. Standard seasonal practices apply.</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    advisories.forEach(function(adv) {
+      var card = document.createElement('div');
+      card.className = 'agro-advisory-card ' + (adv.type || 'info');
+      card.innerHTML =
+        '<div class="agro-advisory-icon">' + (adv.icon || '🌾') + '</div>' +
+        '<div>' +
+        '  <strong style="display: block; font-size: 13px; color: var(--text); margin-bottom: 2px;">' + adv.title + '</strong>' +
+        '  <span style="color: #444; line-height: 1.4;">' + adv.message + '</span>' +
+        '</div>';
+      container.appendChild(card);
+    });
+  }
+
+  function renderHourlyForecast(hourly) {
+    var track = $('hourlyForecastTrack');
+    if (!track) return;
+
+    track.innerHTML = '';
+    if (!hourly || hourly.length === 0) {
+      track.innerHTML = '<div style="font-size: 12px; color: var(--muted); padding: 8px;">Hourly breakdown unavailable.</div>';
+      return;
+    }
+
+    hourly.forEach(function(h) {
+      var hourStr = h.time ? h.time.slice(11, 16) : '--:--';
+      var card = document.createElement('div');
+      card.className = 'hourly-card';
+      card.innerHTML =
+        '<div class="hour-time">' + hourStr + '</div>' +
+        '<div class="hour-icon">' + (h.icon || '🌤️') + '</div>' +
+        '<div class="hour-temp">' + (h.temperature !== null ? Math.round(h.temperature) + '°' : '--') + '</div>' +
+        '<div class="hour-rain">💧 ' + (h.precipitation_probability || 0) + '%</div>' +
+        '<div style="font-size: 10px; color: var(--muted); margin-top: 2px;">' + (h.wind_speed ? Math.round(h.wind_speed) + ' km/h' : '') + '</div>';
+      track.appendChild(card);
+    });
+  }
+
+  function renderDailyForecast(daily) {
+    var grid = $('dailyForecastGrid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+    if (!daily || daily.length === 0) {
+      grid.innerHTML = '<div style="font-size: 12px; color: var(--muted); padding: 8px;">Daily forecast unavailable.</div>';
+      return;
+    }
+
+    daily.forEach(function(d, idx) {
+      var dayName = 'Day ' + (idx + 1);
+      if (d.date) {
+        var dateObj = new Date(d.date);
+        dayName = idx === 0 ? 'Today' : dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      }
+
+      var sprayStatus = (d.precipitation_probability_max > 40 || (d.wind_speed_max || 0) > 18)
+        ? '<span style="font-size: 10px; color: #c62828; font-weight: 700;">⚠️ Spray Drift Risk</span>'
+        : '<span style="font-size: 10px; color: #2e7d32; font-weight: 700;">✓ Spray Safe</span>';
+
+      var card = document.createElement('div');
+      card.className = 'daily-card';
+      card.innerHTML =
+        '<div class="day-date">' + dayName + '</div>' +
+        '<div class="day-icon">' + (d.icon || '🌤️') + '</div>' +
+        '<div class="day-temp">' + Math.round(d.temp_max) + '° <span>/ ' + Math.round(d.temp_min) + '°</span></div>' +
+        '<div class="day-rain">💧 ' + (d.precipitation_probability_max || 0) + '% (' + (d.precipitation_sum || 0) + 'mm)</div>' +
+        '<div style="font-size: 10px; color: var(--muted); margin-top: 4px;">💨 ' + (d.wind_speed_max ? Math.round(d.wind_speed_max) : '--') + ' km/h</div>' +
+        '<div style="margin-top: 6px; padding-top: 4px; border-top: 1px dashed var(--line);">' + sprayStatus + '</div>';
+      grid.appendChild(card);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 5. STATUS MESSAGES
+  // ---------------------------------------------------------------------------
+  function showStatus(text, type) {
+    var statusEl = $('weatherStatusMsg');
+    if (!statusEl) return;
+    statusEl.className = 'status-msg show ' + (type || '');
+
+    // For errors, show a retry button alongside the message
+    if (type === 'error' && currentLat !== null && currentLon !== null) {
+      statusEl.innerHTML = text +
+        ' <button onclick="fetchWeatherByCoords(' + currentLat + ',' + currentLon + ',\'' + (currentLocationName.replace(/'/g, '') || 'Location') + '\')" ' +
+        'style="margin-left:8px;padding:2px 8px;font-size:11px;cursor:pointer;border:1px solid currentColor;border-radius:4px;background:transparent;color:inherit;">🔄 Retry</button>';
+    } else {
+      statusEl.textContent = text;
+    }
+
+    if (type === 'ok') {
+      setTimeout(function() {
+        if (statusEl.textContent.startsWith(text.slice(0, 20))) statusEl.className = 'status-msg';
+      }, 5000);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. INITIALIZATION ON DOCUMENT READY
+  // ---------------------------------------------------------------------------
+  function init() {
+    // Initialize city search (Open-Meteo Geocoding API, all India)
+    initCitySearch();
+
+    // Check if user has saved farm location in profile or local storage
+    var profile = (window.AppStorage && window.AppStorage.get && window.AppStorage.get('farmer_profile', null)) || null;
+
+    if (profile && profile.farm_lat && profile.farm_lon && !isNaN(profile.farm_lat) && !isNaN(profile.farm_lon)) {
+      var pLat = parseFloat(profile.farm_lat);
+      var pLon = parseFloat(profile.farm_lon);
+      var pName = profile.village
+        ? (profile.village + (profile.district ? ', ' + profile.district : ''))
+        : (profile.district || 'My Saved Farm');
+      currentLat = pLat;
+      currentLon = pLon;
+      currentLocationName = pName;
+      var inp = $('weatherCitySearch');
+      if (inp) inp.value = pName;
+      fetchWeatherByCoords(pLat, pLon, pName);
+    } else if (navigator.geolocation) {
+      // Auto-request GPS position
+      getWeatherByGps();
+    } else {
+      showStatus('📍 Geolocation not supported. Please search for your city or village in the search box above.', 'info');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 50);
+  }
+
+  // Export module to window
   window.WeatherModule = {
-    WEATHER_CODES: WEATHER_CODES,
-    INDIAN_CITIES_REGISTRY: INDIAN_CITIES_REGISTRY,
-    fetchWeather: fetchWeather,
+    init: init,
+    fetchWeatherByCoords: fetchWeatherByCoords,
     handleWeatherSearch: handleWeatherSearch,
-    quickCheckWeather: quickCheckWeather,
+    onQuickCitySelect: onQuickCitySelect,
     getWeatherByGps: getWeatherByGps
   };
 
-  // Direct window bindings
-  window.fetchWeather = fetchWeather;
+  // Direct global bindings (for inline onclick handlers in HTML)
+  window.fetchWeather = function(locationQuery) {
+    if (locationQuery && locationQuery.includes(',')) {
+      var parts = locationQuery.split(',');
+      if (!isNaN(parts[0]) && !isNaN(parts[1])) {
+        fetchWeatherByCoords(parseFloat(parts[0]), parseFloat(parts[1]), locationQuery);
+        return;
+      }
+    }
+    var inp = $('weatherCitySearch');
+    if (inp) inp.value = locationQuery;
+    handleWeatherSearch();
+  };
   window.handleWeatherSearch = handleWeatherSearch;
-  window.quickCheckWeather = quickCheckWeather;
   window.getWeatherByGps = getWeatherByGps;
 
 })(window);

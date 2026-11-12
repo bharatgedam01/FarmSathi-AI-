@@ -170,11 +170,22 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
     }
   }
 
-  // 2. Fallback to Verified APMC benchmark records with authentic recorded dates
+  // 2. No live data available — return honest "not available" response
+  // Never serve old benchmark records as current/live prices
   if (rawRecords.length === 0) {
-    rawRecords = ALL_INDIA_MANDI_RECORDS;
-    isLive = false;
-    sourceName = 'Verified APMC Market Bulletins & Agmarknet Benchmark Archive';
+    return {
+      success: false,
+      total: 0,
+      records: [],
+      isLive: false,
+      hasApiKey: hasApiKey,
+      latestObservationDate: '',
+      source: 'No live source available',
+      message: hasApiKey
+        ? 'Live Agmarknet government feed is unavailable or returned no data. Please try again later or check your DATA_GOV_IN_API_KEY configuration.'
+        : 'Live mandi price data is unavailable. DATA_GOV_IN_API_KEY is not configured. Please add a valid Agmarknet API key from data.gov.in to enable real-time mandi prices.',
+      note: 'Configure DATA_GOV_IN_API_KEY in your server .env file to fetch real-time Agmarknet wholesale prices.'
+    };
   }
 
   // Filter

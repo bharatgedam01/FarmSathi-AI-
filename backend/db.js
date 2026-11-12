@@ -1,9 +1,11 @@
-// FarmSaathi AI - Persistent JSON Database Manager
-// Zero external dependencies; uses Node.js standard libraries (fs, path, crypto)
+// FarmSaathi AI - Persistent Hybrid Database Manager
+// Supports local zero-dependency persistent JSON storage AND production Supabase PostgreSQL.
+// Selection is determined by STORAGE_ENGINE=supabase or STORAGE_ENGINE=local (default).
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const supabaseService = require('./services/supabaseService');
 
 const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION);
 // In serverless environments, /tmp is the only writable storage path
@@ -19,6 +21,28 @@ try {
   // Gracefully handled; serverless fallback uses in-memory database
 }
 
+function isSupabaseMode() {
+  return String(process.env.STORAGE_ENGINE || '').toLowerCase() === 'supabase';
+}
+
+function getTodayIST() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+}
+
+function isPastDateIST(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return false;
+  const cleanDate = dateStr.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
+    return cleanDate < getTodayIST();
+  }
+  return false;
+}
+
 function hashPassword(password, salt) {
   if (!salt) salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -30,7 +54,19 @@ function verifyPassword(password, hash, salt) {
   return testHash === hash;
 }
 
-// Initial seed data for immediate fully-working demonstration
+// Production-hardened HMAC Session Secret
+function getSessionSecret() {
+  const secret = process.env.SESSION_SECRET || process.env.CRON_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL SECURITY ERROR: SESSION_SECRET is mandatory in production environment. Fallback secret prohibited.');
+    }
+    return 'farmsaathi-secure-session-salt-2026';
+  }
+  return secret;
+}
+
+// Initial seed data for immediate demonstration
 function getInitialSeedData() {
   const demoSalt = '7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c';
   const demoHash = hashPassword('farmer123', demoSalt).hash;
@@ -90,7 +126,6 @@ function getDb() {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       const parsed = JSON.parse(raw);
-      // Ensure all tables exist
       if (!Array.isArray(parsed.users)) parsed.users = [];
       if (!Array.isArray(parsed.sessions)) parsed.sessions = [];
       if (!parsed.profiles || typeof parsed.profiles !== 'object') parsed.profiles = {};
@@ -130,8 +165,15 @@ function saveDb(data) {
   }
 }
 
-// Authentication Helpers
+// -----------------------------------------------------------------------------
+// UNIFIED DATA ACCESS OPERATIONS (DISPATCHES TO SUPABASE OR LOCAL JSON)
+// -----------------------------------------------------------------------------
+
 function createUser(fullName, email, password, phone) {
+  if (isSupabaseMode()) {
+    return supabaseService.createUser(fullName, email, password, phone);
+  }
+
   const db = getDb();
   const cleanEmail = String(email || '').trim().toLowerCase();
 
@@ -159,7 +201,6 @@ function createUser(fullName, email, password, phone) {
 
   db.users.push(newUser);
 
-  // Create initial profile for user
   db.profiles[userId] = {
     userId: userId,
     fullName: newUser.fullName,
@@ -184,6 +225,10 @@ function createUser(fullName, email, password, phone) {
 }
 
 function authenticateUser(email, password) {
+  if (isSupabaseMode()) {
+    return supabaseService.authenticateUser(email, password);
+  }
+
   const db = getDb();
   const cleanEmail = String(email || '').trim().toLowerCase();
   const user = db.users.find(u => u.email === cleanEmail);
@@ -200,28 +245,26 @@ function authenticateUser(email, password) {
   return user;
 }
 
-function getSessionSecret() {
-  return process.env.CRON_SECRET || process.env.SESSION_SECRET || 'farmsaathi-secure-session-salt-2026';
-}
-
 function createSession(userId) {
-  const db = getDb();
   const secret = getSessionSecret();
   const exp = Date.now() + 30 * 86400000;
   const payload = Buffer.from(JSON.stringify({ userId, exp })).toString('base64url');
   const sig = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
   const token = `fs_sess.${payload}.${sig}`;
 
-  const session = {
-    token: token,
-    userId: userId,
-    expiresAt: new Date(exp).toISOString()
-  };
+  if (!isSupabaseMode()) {
+    const db = getDb();
+    const session = {
+      token: token,
+      userId: userId,
+      expiresAt: new Date(exp).toISOString()
+    };
+    const now = new Date().toISOString();
+    db.sessions = (db.sessions || []).filter(s => s.expiresAt > now);
+    db.sessions.push(session);
+    saveDb(db);
+  }
 
-  const now = new Date().toISOString();
-  db.sessions = (db.sessions || []).filter(s => s.expiresAt > now);
-  db.sessions.push(session);
-  saveDb(db);
   return token;
 }
 
@@ -230,7 +273,7 @@ function getUserByToken(token) {
   const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
   const secret = getSessionSecret();
 
-  // 1. Verify stateless HMAC signed token (works across all serverless lambda instances)
+  // 1. Verify stateless HMAC signed token (cryptographically authentic)
   if (cleanToken.startsWith('fs_sess.')) {
     try {
       const parts = cleanToken.split('.');
@@ -241,6 +284,15 @@ function getUserByToken(token) {
         if (signature === expectedSig) {
           const payload = JSON.parse(Buffer.from(payloadStr, 'base64url').toString('utf8'));
           if (payload.exp && payload.exp > Date.now()) {
+            if (isSupabaseMode()) {
+              // Return user object directly from authenticated token payload
+              return {
+                id: payload.userId,
+                fullName: 'Farmer',
+                email: '',
+                phone: ''
+              };
+            }
             const db = getDb();
             const user = (db.users || []).find(u => u.id === payload.userId);
             if (user) {
@@ -264,44 +316,48 @@ function getUserByToken(token) {
     } catch (e) {}
   }
 
-  // 2. Fallback to in-memory/file session storage
-  const db = getDb();
-  const session = (db.sessions || []).find(s => s.token === cleanToken);
-  if (!session) return null;
+  // 2. Fallback to local session storage
+  if (!isSupabaseMode()) {
+    const db = getDb();
+    const session = (db.sessions || []).find(s => s.token === cleanToken);
+    if (!session || new Date(session.expiresAt) < new Date()) return null;
 
-  if (new Date(session.expiresAt) < new Date()) {
-    return null;
-  }
+    const user = (db.users || []).find(u => u.id === session.userId);
+    if (!user) {
+      return {
+        id: session.userId,
+        fullName: 'Farmer',
+        email: '',
+        phone: ''
+      };
+    }
 
-  const user = (db.users || []).find(u => u.id === session.userId);
-  if (!user) {
     return {
-      id: session.userId,
-      fullName: 'Farmer',
-      email: '',
-      phone: ''
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone,
+      createdAt: user.createdAt
     };
   }
 
-  return {
-    id: user.id,
-    fullName: user.fullName,
-    email: user.email,
-    phone: user.phone,
-    createdAt: user.createdAt
-  };
+  return null;
 }
 
 function deleteSession(token) {
-  if (!token) return;
+  if (!token || isSupabaseMode()) return;
   const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
   const db = getDb();
-  db.sessions = db.sessions.filter(s => s.token !== cleanToken);
+  db.sessions = (db.sessions || []).filter(s => s.token !== cleanToken);
   saveDb(db);
 }
 
 // Profile API
 function getProfile(userId) {
+  if (isSupabaseMode()) {
+    return supabaseService.getProfile(userId);
+  }
+
   const db = getDb();
   if (userId && db.profiles && db.profiles[userId]) {
     return db.profiles[userId];
@@ -328,6 +384,10 @@ function getProfile(userId) {
 }
 
 function saveProfile(userId, profileData) {
+  if (isSupabaseMode()) {
+    return supabaseService.saveProfile(userId, profileData);
+  }
+
   const db = getDb();
   const targetId = userId || 'user_demo';
 
@@ -341,7 +401,6 @@ function saveProfile(userId, profileData) {
 
   db.profiles[targetId] = updated;
 
-  // Also update user's fullName if provided
   if (profileData.fullName || profileData.full_name) {
     const name = profileData.fullName || profileData.full_name;
     const user = db.users.find(u => u.id === targetId);
@@ -354,22 +413,32 @@ function saveProfile(userId, profileData) {
 
 // Crops API
 function getCrops(userId) {
+  if (isSupabaseMode()) {
+    return supabaseService.getCrops(userId);
+  }
   if (!userId) return [];
   const db = getDb();
   return db.crops.filter(c => c.userId === userId);
 }
 
 function addCrop(userId, cropData) {
+  if (isSupabaseMode()) {
+    return supabaseService.addCrop(userId, cropData);
+  }
   if (!userId) throw new Error('User ID is required to add crops');
+  const sowingDate = String(cropData.sowingDate || cropData.sowing_date || '').trim();
+  if (sowingDate && isPastDateIST(sowingDate)) {
+    throw new Error('Past dates are not allowed. Please select today or a future date (Asia/Kolkata).');
+  }
   const db = getDb();
-  const targetId = userId;
 
   const newCrop = {
     id: 'crop_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex'),
-    userId: targetId,
+    userId: userId,
     cropName: String(cropData.cropName || cropData.crop_name || '').trim(),
     fieldName: String(cropData.fieldName || cropData.field_name || '').trim(),
-    sowingDate: String(cropData.sowingDate || cropData.sowing_date || '').trim(),
+    variety: String(cropData.variety || '').trim(),
+    sowingDate: sowingDate || getTodayIST(),
     growthStage: String(cropData.growthStage || cropData.growth_stage || 'Vegetative').trim(),
     area: String(cropData.area || '').trim(),
     notes: String(cropData.notes || '').trim(),
@@ -382,6 +451,9 @@ function addCrop(userId, cropData) {
 }
 
 function deleteCrop(userId, cropId) {
+  if (isSupabaseMode()) {
+    return supabaseService.deleteCrop(userId, cropId);
+  }
   if (!userId || !cropId) return false;
   const db = getDb();
   const initialLen = db.crops.length;
@@ -393,22 +465,31 @@ function deleteCrop(userId, cropId) {
 
 // Activities API
 function getActivities(userId) {
+  if (isSupabaseMode()) {
+    return supabaseService.getActivities(userId);
+  }
   if (!userId) return [];
   const db = getDb();
   return db.activities.filter(a => a.userId === userId);
 }
 
 function addActivity(userId, activityData) {
+  if (isSupabaseMode()) {
+    return supabaseService.addActivity(userId, activityData);
+  }
   if (!userId) throw new Error('User ID is required to add activities');
+  const actDate = String(activityData.date || activityData.activity_date || '').trim();
+  if (actDate && isPastDateIST(actDate)) {
+    throw new Error('Past dates are not allowed. Please select today or a future date (Asia/Kolkata).');
+  }
   const db = getDb();
-  const targetId = userId;
 
   const newActivity = {
     id: 'act_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex'),
-    userId: targetId,
+    userId: userId,
     name: String(activityData.name || '').trim(),
     category: String(activityData.category || 'General').trim(),
-    date: String(activityData.date || new Date().toISOString().slice(0, 10)).trim(),
+    date: actDate || getTodayIST(),
     farm: String(activityData.farm || activityData.fieldName || '').trim(),
     crop: String(activityData.crop || activityData.cropName || '').trim(),
     notes: String(activityData.notes || '').trim(),
@@ -422,6 +503,12 @@ function addActivity(userId, activityData) {
 }
 
 function updateActivity(userId, activityId, activityData) {
+  if (isSupabaseMode()) {
+    return supabaseService.updateActivity(userId, activityId, activityData);
+  }
+  if (activityData.date !== undefined && isPastDateIST(String(activityData.date).trim())) {
+    throw new Error('Past dates are not allowed. Please select today or a future date (Asia/Kolkata).');
+  }
   const db = getDb();
   const targetId = userId || 'user_demo';
   const act = db.activities.find(a => a.id === activityId && (a.userId === targetId || targetId === 'user_demo'));
@@ -440,17 +527,10 @@ function updateActivity(userId, activityId, activityData) {
   return null;
 }
 
-function deleteActivity(userId, activityId) {
-  if (!userId || !activityId) return false;
-  const db = getDb();
-  const initialLen = db.activities.length;
-
-  db.activities = db.activities.filter(a => !(a.id === activityId && a.userId === userId));
-  saveDb(db);
-  return db.activities.length < initialLen;
-}
-
 function toggleActivity(userId, activityId) {
+  if (isSupabaseMode()) {
+    return supabaseService.toggleActivity(userId, activityId);
+  }
   if (!userId || !activityId) return null;
   const db = getDb();
   const act = db.activities.find(a => a.id === activityId && a.userId === userId);
@@ -462,26 +542,48 @@ function toggleActivity(userId, activityId) {
   return null;
 }
 
+function deleteActivity(userId, activityId) {
+  if (isSupabaseMode()) {
+    return supabaseService.deleteActivity(userId, activityId);
+  }
+  if (!userId || !activityId) return false;
+  const db = getDb();
+  const initialLen = db.activities.length;
+
+  db.activities = db.activities.filter(a => !(a.id === activityId && a.userId === userId));
+  saveDb(db);
+  return db.activities.length < initialLen;
+}
+
 // Analyses API
 function getAnalyses(userId) {
+  if (isSupabaseMode()) {
+    return supabaseService.getAnalyses(userId);
+  }
   if (!userId) return [];
   const db = getDb();
   return (db.analyses || []).filter(a => a.userId === userId);
 }
 
 function addAnalysis(userId, analysisData) {
+  if (isSupabaseMode()) {
+    return supabaseService.addAnalysis(userId, analysisData);
+  }
   if (!userId) throw new Error('User ID is required to save scan analyses');
   const db = getDb();
-  const targetId = userId;
 
   const newAnalysis = {
     id: analysisData.id || ('scan_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex')),
-    userId: targetId,
+    userId: userId,
     crop: String(analysisData.crop || 'Plant Specimen').trim(),
     fileName: String(analysisData.fileName || analysisData.file_name || 'photo.jpg').trim(),
     imageUrl: analysisData.imageUrl || analysisData.image_url || analysisData.imagePath || analysisData.image_path || null,
     report: String(analysisData.report || '').trim(),
     isDemo: Boolean(analysisData.isDemo),
+    confidence: analysisData.confidence || null,
+    model_name: analysisData.model_name || analysisData.modelName || null,
+    detected_crop: analysisData.detected_crop || analysisData.detectedCrop || null,
+    possible_issue: analysisData.possible_issue || analysisData.possibleIssue || null,
     createdAt: new Date().toISOString()
   };
 
@@ -491,6 +593,9 @@ function addAnalysis(userId, analysisData) {
 }
 
 function deleteAnalysis(userId, analysisId) {
+  if (isSupabaseMode()) {
+    return supabaseService.deleteAnalysis(userId, analysisId);
+  }
   if (!userId || !analysisId) return false;
   const db = getDb();
   const initialLen = (db.analyses || []).length;
@@ -501,6 +606,9 @@ function deleteAnalysis(userId, analysisId) {
 }
 
 function clearAnalyses(userId) {
+  if (isSupabaseMode()) {
+    return supabaseService.clearAnalyses(userId);
+  }
   if (!userId) return 0;
   const db = getDb();
   const beforeLen = (db.analyses || []).length;
@@ -510,6 +618,9 @@ function clearAnalyses(userId) {
 }
 
 function getStats() {
+  if (isSupabaseMode()) {
+    return supabaseService.getStats();
+  }
   const db = getDb();
   return {
     usersCount: db.users.length,
@@ -522,6 +633,8 @@ function getStats() {
 }
 
 module.exports = {
+  isSupabaseMode,
+  getSessionSecret,
   getDb,
   saveDb,
   createUser,

@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/responsive.css">
   
+  <!-- Leaflet removed — weather now uses GPS + Open-Meteo Geocoding city search -->
+
   <!-- SUPABASE JS CLIENT LIBRARY -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/supabase-client.js"></script>
@@ -206,6 +208,15 @@
           <option value="en">English (English)</option>
           <option value="hi">हिन्दी (Hindi)</option>
           <option value="mr">मराठी (Marathi)</option>
+          <option value="te">తెలుగు (Telugu)</option>
+          <option value="kn">ಕನ್ನಡ (Kannada)</option>
+          <option value="gu">ગુજરાતી (Gujarati)</option>
+          <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+          <option value="ta">தமிழ் (Tamil)</option>
+          <option value="bn">বাংলা (Bengali)</option>
+          <option value="ml">മലയാളം (Malayalam)</option>
+          <option value="or">ଓଡ଼ିଆ (Odia)</option>
+          <option value="ur">اردو (Urdu)</option>
         </select>
         <div class="user-profile-badge" id="topUserBadge" style="display: flex; align-items: center; gap: 8px; background: #eaf3e5; padding: 5px 12px; border-radius: 99px; border: 1px solid #d6e8d2;">
           <span style="font-size: 14px;">👨‍🌾</span>
@@ -363,9 +374,18 @@
           <label class="field">
             <span id="lblPreferredLang">Preferred Language</span>
             <select class="input" id="profLanguage" name="preferred_language">
-              <option value="en">English</option>
+              <option value="en">English (English)</option>
               <option value="hi">हिन्दी (Hindi)</option>
               <option value="mr">मराठी (Marathi)</option>
+              <option value="te">తెలుగు (Telugu)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              <option value="gu">ગુજરાતી (Gujarati)</option>
+              <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="ml">മലയാളം (Malayalam)</option>
+              <option value="or">ଓଡ଼ିଆ (Odia)</option>
+              <option value="ur">اردو (Urdu)</option>
             </select>
           </label>
           <label class="field">
@@ -639,136 +659,166 @@
     <!-- ========================================================================= -->
     <section class="page-section" id="page-weather">
       <div class="panel">
-        <div class="panel-head">
+        <div class="panel-head" style="flex-wrap: wrap; gap: 12px;">
           <div>
-            <h2 id="weatherPageTitle">🌦️ Weather & Agricultural Advisories</h2>
-            <p id="weatherPageSub">Live conditions from Open-Meteo with 5-day rain and spray advisories.</p>
+            <h2 id="weatherPageTitle">&#127782;&#65039; All India Agricultural Weather</h2>
+            <p id="weatherPageSub">High-resolution Open-Meteo NWP forecasts for any Indian city — GPS or city search. Agronomic advisories included.</p>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" id="btnWeatherGps" onclick="getWeatherByGps()">📍 Use GPS Location</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <button type="button" class="btn btn-primary btn-sm" id="btnWeatherGps" onclick="getWeatherByGps()">&#128205; Use My Live Location (GPS)</button>
+            <span id="weatherGpsAccuracyBadge" style="display: none; font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #e3f2fd; color: #0d47a1;"></span>
+          </div>
         </div>
 
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;">
-          <form id="formWeatherSearch" onsubmit="handleWeatherSearch(event)" style="display: flex; gap: 8px; flex: 1; min-width: 260px;">
-            <input class="input" id="weatherSearchLocation" placeholder="Enter city, district or village across India…" required>
-            <button type="submit" class="btn btn-primary" id="btnWeatherSearch">Search</button>
-          </form>
-          <select class="input" id="weatherQuickCity" onchange="if(this.value){$('weatherSearchLocation').value=this.value;fetchWeather(this.value);}" style="width: auto; min-width: 230px;" aria-label="Quick Select City or District">
-            <option value="">⚡ Quick City / District</option>
+        <!-- CITY SEARCH: All India via Open-Meteo Geocoding API (no key required) -->
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;">
+          <div class="weather-search-wrapper" style="flex: 1; min-width: 220px;">
+            <input class="input" id="weatherCitySearch" type="text" placeholder="Search any Indian city or district (e.g. Nagpur, Pune, Ludhiana, Delhi, Hyderabad)" autocomplete="off">
+            <div class="weather-autocomplete-dropdown" id="weatherCityResults"></div>
+          </div>
+          <button type="button" class="btn btn-secondary" id="btnWeatherSearchSubmit" onclick="handleWeatherSearch(event)">Search</button>
+          <select class="input" id="weatherQuickCity" onchange="if(this.value &amp;&amp; window.WeatherModule){ window.WeatherModule.onQuickCitySelect(this.value); this.value=&apos;&apos;; }" style="width: auto; min-width: 200px;" aria-label="Quick Select City">
+            <option value="">&#9889; Quick City Select</option>
             <optgroup label="Maharashtra">
-              <option value="Gadchiroli">Gadchiroli (गडचिरोली)</option>
-              <option value="Nagpur">Nagpur (नागपूर)</option>
-              <option value="Nashik">Nashik (नाशिक)</option>
-              <option value="Pune">Pune (पुणे)</option>
-              <option value="Amravati">Amravati (अमरावती)</option>
-              <option value="Chandrapur">Chandrapur (चंद्रपूर)</option>
-              <option value="Chhatrapati Sambhajinagar">Chhatrapati Sambhajinagar (औरंगाबाद)</option>
-              <option value="Kolhapur">Kolhapur (कोल्हापूर)</option>
-              <option value="Solapur">Solapur (सोलापूर)</option>
-              <option value="Jalgaon">Jalgaon (जळगाव)</option>
-              <option value="Akola">Akola (अकोला)</option>
-              <option value="Latur">Latur (लातूर)</option>
+              <option value="Gadchiroli">Gadchiroli</option>
+              <option value="Pune">Pune</option>
+              <option value="Nagpur">Nagpur</option>
+              <option value="Nashik">Nashik</option>
+              <option value="Kolhapur">Kolhapur</option>
+              <option value="Aurangabad">Aurangabad</option>
+              <option value="Amravati">Amravati</option>
+              <option value="Solapur">Solapur</option>
+              <option value="Jalgaon">Jalgaon</option>
+              <option value="Akola">Akola</option>
+              <option value="Latur">Latur</option>
+              <option value="Chandrapur">Chandrapur</option>
             </optgroup>
-            <optgroup label="Madhya Pradesh">
-              <option value="Indore">Indore (इंदौर)</option>
-              <option value="Ujjain">Ujjain (उज्जैन)</option>
-              <option value="Bhopal">Bhopal (भोपाल)</option>
-              <option value="Jabalpur">Jabalpur (जबलपुर)</option>
-              <option value="Gwalior">Gwalior (ग्वालियर)</option>
+            <optgroup label="Punjab &amp; Haryana">
+              <option value="Ludhiana">Ludhiana</option>
+              <option value="Karnal">Karnal</option>
+              <option value="Amritsar">Amritsar</option>
+              <option value="Hisar">Hisar</option>
+              <option value="Bathinda">Bathinda</option>
             </optgroup>
-            <optgroup label="Gujarat">
-              <option value="Rajkot">Rajkot (રાજકોટ)</option>
-              <option value="Surat">Surat (સુરત)</option>
-              <option value="Ahmedabad">Ahmedabad (અમદાવાદ)</option>
-              <option value="Vadodara">Vadodara (વડોદરા)</option>
+            <optgroup label="Madhya Pradesh &amp; Gujarat">
+              <option value="Indore">Indore</option>
+              <option value="Bhopal">Bhopal</option>
+              <option value="Ujjain">Ujjain</option>
+              <option value="Rajkot">Rajkot</option>
+              <option value="Surat">Surat</option>
+              <option value="Ahmedabad">Ahmedabad</option>
             </optgroup>
-            <optgroup label="Punjab & Haryana">
-              <option value="Ludhiana">Ludhiana (ਲੁਧਿਆਣਾ)</option>
-              <option value="Amritsar">Amritsar (ਅੰਮ੍ਰਿਤਸਰ)</option>
-              <option value="Bathinda">Bathinda (ਬਠਿੰਡਾ)</option>
-              <option value="Karnal">Karnal (करनाल)</option>
-              <option value="Hisar">Hisar (हिसार)</option>
-              <option value="Kurukshetra">Kurukshetra (कुरुक्षेत्र)</option>
-            </optgroup>
-            <optgroup label="Rajasthan">
-              <option value="Jaipur">Jaipur (जयपुर)</option>
-              <option value="Kota">Kota (कोटा)</option>
-              <option value="Jodhpur">Jodhpur (जोधपुर)</option>
-              <option value="Bikaner">Bikaner (बीकानेर)</option>
-              <option value="Sri Ganganagar">Sri Ganganagar (श्रीगंगानगर)</option>
-            </optgroup>
-            <optgroup label="Uttar Pradesh & Bihar">
-              <option value="Lucknow">Lucknow (लखनऊ)</option>
-              <option value="Kanpur">Kanpur (कानपुर)</option>
-              <option value="Varanasi">Varanasi (वाराणसी)</option>
-              <option value="Agra">Agra (आगरा)</option>
-              <option value="Patna">Patna (पटना)</option>
-              <option value="Muzaffarpur">Muzaffarpur (मुजफ्फरपुर)</option>
+            <optgroup label="Rajasthan &amp; UP">
+              <option value="Jaipur">Jaipur</option>
+              <option value="Kota">Kota</option>
+              <option value="Lucknow">Lucknow</option>
+              <option value="Kanpur">Kanpur</option>
+              <option value="Varanasi">Varanasi</option>
             </optgroup>
             <optgroup label="South India">
-              <option value="Guntur">Guntur (గుంటూరు)</option>
-              <option value="Vijayawada">Vijayawada (విజయవాడ)</option>
-              <option value="Warangal">Warangal (వరంగల్)</option>
-              <option value="Hyderabad">Hyderabad (హైదరాబాద్)</option>
-              <option value="Bengaluru">Bengaluru (ಬೆಂಗಳೂರು)</option>
-              <option value="Hubballi">Hubballi (ಹುಬ್ಬಳ್ಳಿ)</option>
-              <option value="Chennai">Chennai (சென்னை)</option>
-              <option value="Coimbatore">Coimbatore (கோயம்புத்தூர்)</option>
-              <option value="Kochi">Kochi (കൊച്ചി)</option>
-            </optgroup>
-            <optgroup label="East & Central India">
-              <option value="Kolkata">Kolkata (কলকাতা)</option>
-              <option value="Burdwan">Burdwan (বর্ধমান)</option>
-              <option value="Bhubaneswar">Bhubaneswar (ଭୁବନେଶ୍ୱର)</option>
-              <option value="Raipur">Raipur (रायपुर)</option>
-              <option value="Ranchi">Ranchi (राँची)</option>
-              <option value="Guwahati">Guwahati (গুৱাহাটী)</option>
-              <option value="Delhi">Delhi (दिल्ली)</option>
+              <option value="Bengaluru">Bengaluru</option>
+              <option value="Hyderabad">Hyderabad</option>
+              <option value="Guntur">Guntur</option>
+              <option value="Chennai">Chennai</option>
+              <option value="Kochi">Kochi</option>
             </optgroup>
           </select>
         </div>
 
+        <!-- STATUS NOTIFICATIONS / ERRORS -->
         <div id="weatherStatusMsg" class="status-msg"></div>
 
+        <!-- 5. WEATHER DISPLAY AREA -->
         <div id="weatherContentArea">
           <div style="background: #fafcf8; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px;">
+            <!-- Current Weather Hero Card -->
             <div class="weather-current">
               <div>
-                <span class="badge badge-ok" id="weatherBadgeState">Live Data</span>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap;">
+                  <span class="badge badge-ok" id="weatherBadgeState">Live Data</span>
+                  <span class="badge" id="weatherBadgeModel" style="background: #e8f5e9; color: #1b5e20;">Open-Meteo High-Resolution NWP</span>
+                  <!-- GPS accuracy badge moved to header -->
+                <div style="font-size: 11px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 4px; padding: 4px 8px; margin-top: 4px;" id="weatherNwpDisclaimer">
+                  &#9888;&#65039; <strong>NWP Model Estimate</strong> &mdash; Not an IMD Weather Station Observation. Local micro-climate variations may differ from model output.
+                </div>
+                </div>
                 <div class="weather-temp-big" id="wTemp">--°C</div>
-                <div style="font-size: 14px; font-weight: 700; margin-top: 4px;" id="wLocation">Search for your village or district</div>
-                <div style="font-size: 12px; color: var(--muted);" id="wCondition">--</div>
+                <div style="font-size: 16px; font-weight: 750; margin-top: 6px; color: var(--text);" id="wLocation">Select your location or use GPS</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;" id="wCoords">--</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--primary); margin-top: 4px;" id="wCondition">--</div>
               </div>
-              <div class="weather-icon-big" id="wIcon">🌤️</div>
+              <div class="weather-icon-big" id="wIcon" style="text-align: right;">🌤️</div>
             </div>
 
+            <!-- Detailed Agro-Meteorology Stats Grid -->
             <div class="weather-stats-grid">
               <div class="weather-stat-box">
                 <span id="lblFeelsLike">Feels Like</span>
                 <b id="wFeelsLike">--°C</b>
               </div>
               <div class="weather-stat-box">
-                <span id="lblHumidity">Humidity</span>
+                <span id="lblTempRange">Today's Range (Max/Min)</span>
+                <b id="wTempRange">-- / --°C</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblHumidity">Relative Humidity</span>
                 <b id="wHumidity">--%</b>
               </div>
               <div class="weather-stat-box">
-                <span id="lblWind">Wind Speed</span>
+                <span id="lblPrecip">Rain Amount / Prob.</span>
+                <b id="wPrecip">-- mm / --%</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblWind">Wind Speed & Direction</span>
                 <b id="wWind">-- km/h</b>
               </div>
               <div class="weather-stat-box">
-                <span id="lblPrecip">Precipitation</span>
-                <b id="wPrecip">-- mm</b>
+                <span id="lblGusts">Wind Gusts</span>
+                <b id="wGusts">-- km/h</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblCloud">Cloud Cover</span>
+                <b id="wCloudCover">--%</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblSun">Sunrise / Sunset (IST)</span>
+                <b id="wSunTimes">-- / --</b>
+              </div>
+              <div class="weather-stat-box">
+                <span id="lblPressure">Atm. Pressure (hPa)</span>
+                <b id="wPressure">-- hPa</b>
               </div>
             </div>
 
-            <!-- Smart Spray / Farm Advisory -->
-            <div id="weatherAdvisoryBox" class="notice-box" style="display: none; margin-top: 16px;"></div>
+            <!-- Agricultural Field Advisories -->
+            <div style="margin-top: 20px;">
+              <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--text);">🌾 Agronomic Advisory & Spray Hazard Warnings</h4>
+              <div id="weatherAdvisoriesContainer" class="agro-advisories-list"></div>
+            </div>
 
-            <h4 style="margin: 24px 0 12px; font-size: 15px;" id="lblForecast">5-Day Agricultural Forecast</h4>
-            <div id="forecastContainer" class="item-list"></div>
+            <!-- 24-Hour Hourly Forecast Slider -->
+            <div style="margin-top: 22px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--text);" id="lblHourly">⏰ Next 24 Hours Forecast (Hourly)</h4>
+                <small style="font-size: 11px; color: var(--muted);">Scroll right for full timeline →</small>
+              </div>
+              <div id="hourlyForecastTrack" class="hourly-forecast-track"></div>
+            </div>
 
-            <p style="font-size: 11px; color: var(--muted); margin-top: 14px;" id="weatherSourceFoot">
-              Source: Open-Meteo REST API · Real-time forecast model.
-            </p>
+            <!-- 7-Day Agricultural Forecast Grid -->
+            <div style="margin-top: 22px;">
+              <h4 style="font-size: 14px; font-weight: 700; margin-bottom: 8px; color: var(--text);" id="lblForecast">📅 7-Day Precision Agricultural Forecast</h4>
+              <div id="dailyForecastGrid" class="daily-forecast-grid"></div>
+            </div>
+
+            <!-- Model Transparency & Scientific Disclaimer Footer -->
+            <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); line-height: 1.5;" id="weatherSourceFoot">
+              <strong>Meteorological Data Source:</strong> Open-Meteo High-Resolution Numerical Weather Prediction (NWP) API.<br>
+              <strong>Atmospheric Models:</strong> ECMWF IFS (~9km resolution), DWD ICON-EU (~7km resolution), and GFS blend.<br>
+              <strong>Model Run Update:</strong> <span id="wModelUpdated">Live Observation Cycle (IST)</span> · <span id="wGridRes">~11 km Grid Cell</span><br>
+              <strong>Observation Timestamp:</strong> <span id="wObservedTime" style="font-weight:600; color: var(--deep);">--</span> &nbsp;|&nbsp; <strong>Last Fetched:</strong> <span id="wLastFetched">--</span><br>
+              <strong>Notice & Transparency:</strong> Numerical model forecasts represent mathematical simulations of atmospheric physics. Convective precipitation, sudden squalls, and localized village micro-climates may vary from synoptic estimates. Never assume 100% weather certainty.
+            </div>
           </div>
         </div>
       </div>
@@ -815,7 +865,7 @@
             <option value="Delhi">Delhi (दिल्ली)</option>
           </select>
           <select class="input" id="mandiSortFilter" onchange="fetchMandiPrices()">
-            <option value="date_desc">📅 Sort by Date (Latest)</option>
+            <option value="relevance">⚡ Default (Latest APMC Rates)</option>
             <option value="price_desc">💰 Price: High to Low</option>
             <option value="price_asc">💵 Price: Low to High</option>
             <option value="crop_asc">🌾 Commodity: A to Z</option>
@@ -826,7 +876,8 @@
 
         <div id="mandiMetaBanner" style="font-size: 12.5px; padding: 8px 12px; background: #fafcf8; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 14px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <span id="mandiSourceText">🏛️ Source: Agmarknet & Open Government Data Platform (data.gov.in)</span>
-          <span id="mandiLatestDateText">Latest Observation: <b>Verifying…</b></span>
+          <!-- mandiLatestDateText kept for JS; not displayed -->
+          <span id="mandiLatestDateText" style="display:none;"></span>
         </div>
 
         <div class="table-wrap">
@@ -839,7 +890,7 @@
                 <th id="thModal">Modal Price (₹/Quintal)</th>
                 <th id="thRange">Min - Max</th>
                 <th id="thTrend">Trend</th>
-                <th id="thDate">Date</th>
+                <!-- Last Updated column header removed per user request -->
               </tr>
             </thead>
             <tbody id="mandiTableBody"></tbody>
@@ -1115,6 +1166,15 @@
               <option value="en">English (English)</option>
               <option value="hi">हिन्दी (Hindi)</option>
               <option value="mr">मराठी (Marathi)</option>
+              <option value="te">తెలుగు (Telugu)</option>
+              <option value="kn">ಕನ್ನಡ (Kannada)</option>
+              <option value="gu">ગુજરાતી (Gujarati)</option>
+              <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+              <option value="ta">தமிழ் (Tamil)</option>
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="ml">മലയാളം (Malayalam)</option>
+              <option value="or">ଓଡ଼ିଆ (Odia)</option>
+              <option value="ur">اردو (Urdu)</option>
             </select>
           </label>
           <div class="field">

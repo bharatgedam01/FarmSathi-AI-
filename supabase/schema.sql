@@ -1,233 +1,252 @@
 -- ==============================================================================
--- FARMSAATHI AI — PRODUCTION POSTGRESQL SCHEMA & ROW LEVEL SECURITY (RLS)
+-- FARMSAATHI AI — PRODUCTION POSTGRESQL SCHEMA & HARDENED TRANSACTIONAL RPC
 -- ==============================================================================
--- Run this script in your Supabase Project's SQL Editor:
--- https://supabase.com/dashboard/project/_/sql
---
--- This script safely enables RLS, creates indexes, triggers, foreign keys,
--- and supports both dedicated domain tables (profiles, farms, crops, activities)
--- and the unified public.farm_records table with strict user isolation.
+-- Compatible with FarmSaathi AI Custom Authentication (Alphanumeric TEXT IDs + HMAC sessions)
+-- Idempotent: Can be safely executed multiple times without errors or duplicates.
+-- Security: Revokes client/public access, enforces RLS, and sets search_path = ''
+-- on SECURITY DEFINER RPC with fully qualified catalog functions.
 -- ==============================================================================
 
--- 1. Enable UUID Extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- 1. APP USERS TABLE (Preserves custom IDs: 'user_demo', 'usr_...')
+CREATE TABLE IF NOT EXISTS public.app_users (
+  id TEXT PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  phone TEXT,
+  password_hash TEXT NOT NULL,
+  salt TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- ==============================================================================
 -- 2. FARMER PROFILES TABLE
--- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id TEXT PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
   full_name TEXT,
   phone TEXT,
   village TEXT,
   district TEXT,
   state TEXT DEFAULT 'Maharashtra',
-  preferred_language TEXT NOT NULL DEFAULT 'en' CHECK (preferred_language IN ('en', 'hi', 'mr')),
-  farm_area NUMERIC CHECK (farm_area IS NULL OR farm_area >= 0),
-  area_unit TEXT NOT NULL DEFAULT 'acres' CHECK (area_unit IN ('acres', 'hectares', 'bigha', 'guntha')),
+  preferred_language TEXT NOT NULL DEFAULT 'en',
+  farm_area TEXT,
+  area_unit TEXT NOT NULL DEFAULT 'acres',
   soil_type TEXT,
   irrigation_method TEXT,
   main_crop TEXT,
   season TEXT,
-  latitude NUMERIC(9, 6),
-  longitude NUMERIC(9, 6),
+  latitude NUMERIC(10, 7),
+  longitude NUMERIC(10, 7),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ==============================================================================
--- 3. FARMS TABLE (Multi-plot farm management)
--- ==============================================================================
-CREATE TABLE IF NOT EXISTS public.farms (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  village TEXT,
-  district TEXT,
-  state TEXT DEFAULT 'Maharashtra',
-  area NUMERIC CHECK (area IS NULL OR area >= 0),
-  area_unit TEXT NOT NULL DEFAULT 'acres' CHECK (area_unit IN ('acres', 'hectares', 'bigha', 'guntha')),
-  soil_type TEXT,
-  irrigation_method TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ==============================================================================
--- 4. CROPS TABLE (Crop variety, field plot, sowing dates, and growth stages)
--- ==============================================================================
+-- 3. CROPS TABLE
 CREATE TABLE IF NOT EXISTS public.crops (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  farm_id UUID REFERENCES public.farms(id) ON DELETE SET NULL,
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   crop_name TEXT NOT NULL,
   field_name TEXT,
   variety TEXT,
-  sowing_date DATE,
+  sowing_date TEXT,
   growth_stage TEXT DEFAULT 'Vegetative',
-  area NUMERIC CHECK (area IS NULL OR area >= 0),
+  area TEXT,
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ==============================================================================
--- 5. FARM ACTIVITIES & CALENDAR REMINDERS TABLE
--- ==============================================================================
+-- 4. FARM ACTIVITIES & REMINDERS TABLE
 CREATE TABLE IF NOT EXISTS public.farm_activities (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  farm_id UUID REFERENCES public.farms(id) ON DELETE SET NULL,
-  crop_id UUID REFERENCES public.crops(id) ON DELETE SET NULL,
-  activity_name TEXT NOT NULL,
-  category TEXT DEFAULT 'General' CHECK (category IN ('General', 'Irrigation', 'Fertilizer', 'Spraying', 'Weeding', 'Sowing', 'Harvesting')),
-  activity_date DATE NOT NULL,
-  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Completed', 'Postponed')),
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT DEFAULT 'General',
+  activity_date TEXT NOT NULL,
+  farm TEXT,
+  crop TEXT,
   notes TEXT,
+  completed BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ==============================================================================
--- 6. CROP IMAGE ANALYSES & HEALTH TRIAGE TABLE
--- ==============================================================================
+-- 5. CROP HEALTH ANALYSES TABLE
 CREATE TABLE IF NOT EXISTS public.crop_analyses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  crop_id UUID REFERENCES public.crops(id) ON DELETE SET NULL,
-  original_file_name TEXT,
-  image_path TEXT,
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  crop TEXT NOT NULL,
+  file_name TEXT,
+  image_url TEXT,
+  report TEXT NOT NULL,
+  is_demo BOOLEAN NOT NULL DEFAULT FALSE,
+  confidence TEXT,
+  model_name TEXT,
   detected_crop TEXT,
   possible_issue TEXT,
-  confidence TEXT,
-  report TEXT NOT NULL,
-  model_name TEXT DEFAULT 'gpt-4o-mini',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ==============================================================================
--- 7. CHAT CONVERSATIONS & MESSAGES TABLES
+-- 6. PERFORMANCE INDEXES
 -- ==============================================================================
-CREATE TABLE IF NOT EXISTS public.chat_conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  title TEXT NOT NULL DEFAULT 'Farm Consultation',
-  language TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'hi', 'mr')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.chat_messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES public.chat_conversations(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  content TEXT NOT NULL CHECK (length(content) <= 10000),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ==============================================================================
--- 8. UNIFIED FARM RECORDS TABLE (public.farm_records)
--- Suitable for flexible polymorphic record storage across all farm operations
--- ==============================================================================
-CREATE TABLE IF NOT EXISTS public.farm_records (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  record_type TEXT NOT NULL CHECK (record_type IN ('profile', 'farm', 'crop', 'activity', 'analysis', 'soil_test', 'custom')),
-  title TEXT,
-  record_data JSONB NOT NULL DEFAULT '{}'::jsonb,
-  status TEXT DEFAULT 'active',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- ==============================================================================
--- 9. PERFORMANCE INDEXES
--- ==============================================================================
-CREATE INDEX IF NOT EXISTS idx_farms_user_id ON public.farms(user_id);
+CREATE INDEX IF NOT EXISTS idx_app_users_email ON public.app_users(email);
 CREATE INDEX IF NOT EXISTS idx_crops_user_id ON public.crops(user_id);
-CREATE INDEX IF NOT EXISTS idx_crops_farm_id ON public.crops(farm_id);
 CREATE INDEX IF NOT EXISTS idx_farm_activities_user_id ON public.farm_activities(user_id);
 CREATE INDEX IF NOT EXISTS idx_farm_activities_date ON public.farm_activities(activity_date);
 CREATE INDEX IF NOT EXISTS idx_crop_analyses_user_id ON public.crop_analyses(user_id);
-CREATE INDEX IF NOT EXISTS idx_chat_conversations_user_id ON public.chat_conversations(user_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_id ON public.chat_messages(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_farm_records_user_id ON public.farm_records(user_id);
-CREATE INDEX IF NOT EXISTS idx_farm_records_type ON public.farm_records(record_type);
-CREATE INDEX IF NOT EXISTS idx_farm_records_data_gin ON public.farm_records USING gin (record_data);
 
 -- ==============================================================================
--- 10. ROW LEVEL SECURITY (RLS) POLICIES
--- Strict Isolation: Authenticated users can ONLY view, insert, update, delete
--- their own records.
+-- 7. SECURITY: REVOKE PRIVILEGES & ENFORCE RLS ON ALL TABLES
 -- ==============================================================================
+REVOKE ALL ON TABLE public.app_users, public.profiles, public.crops, public.farm_activities, public.crop_analyses FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE public.app_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_users FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.farms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.crops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crops FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.farm_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.farm_activities FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.crop_analyses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.chat_conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.farm_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.crop_analyses FORCE ROW LEVEL SECURITY;
 
--- Profiles: user id matches auth.uid()
-CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
-CREATE POLICY "Users can delete own profile" ON public.profiles FOR DELETE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Deny public access to app_users" ON public.app_users;
+CREATE POLICY "Deny public access to app_users" ON public.app_users FOR ALL TO anon, authenticated USING (false);
 
--- Farms
-CREATE POLICY "Users manage own farms" ON public.farms FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Deny public access to profiles" ON public.profiles;
+CREATE POLICY "Deny public access to profiles" ON public.profiles FOR ALL TO anon, authenticated USING (false);
 
--- Crops
-CREATE POLICY "Users manage own crops" ON public.crops FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Deny public access to crops" ON public.crops;
+CREATE POLICY "Deny public access to crops" ON public.crops FOR ALL TO anon, authenticated USING (false);
 
--- Farm Activities
-CREATE POLICY "Users manage own activities" ON public.farm_activities FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Deny public access to farm_activities" ON public.farm_activities;
+CREATE POLICY "Deny public access to farm_activities" ON public.farm_activities FOR ALL TO anon, authenticated USING (false);
 
--- Crop Analyses
-CREATE POLICY "Users manage own analyses" ON public.crop_analyses FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- Chat Conversations
-CREATE POLICY "Users manage own conversations" ON public.chat_conversations FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- Chat Messages
-CREATE POLICY "Users manage own chat messages" ON public.chat_messages FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
--- Unified Farm Records
-CREATE POLICY "Users manage own farm records" ON public.farm_records FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Deny public access to crop_analyses" ON public.crop_analyses;
+CREATE POLICY "Deny public access to crop_analyses" ON public.crop_analyses FOR ALL TO anon, authenticated USING (false);
 
 -- ==============================================================================
--- 11. AUTOMATIC PROFILE CREATION TRIGGER
--- When a user registers through Supabase Auth, a profile row is created automatically
+-- 8. HARDENED ATOMIC MIGRATION RPC (SECURITY DEFINER with empty search_path)
 -- ==============================================================================
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.migrate_farm_payload(p_data pg_catalog.jsonb)
+RETURNS pg_catalog.jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_users_count pg_catalog.int4 := 0;
+  v_profiles_count pg_catalog.int4 := 0;
+  v_crops_count pg_catalog.int4 := 0;
+  v_activities_count pg_catalog.int4 := 0;
+  v_analyses_count pg_catalog.int4 := 0;
 BEGIN
-  INSERT INTO public.profiles (id, full_name, preferred_language, created_at, updated_at)
-  VALUES (
-    new.id,
-    COALESCE(new.raw_user_meta_data->>'full_name', ''),
-    COALESCE(new.raw_user_meta_data->>'preferred_language', 'en'),
-    NOW(),
-    NOW()
-  )
+  -- 1. Ingest Users
+  INSERT INTO public.app_users (id, full_name, email, phone, password_hash, salt, created_at, updated_at)
+  SELECT
+    (u->>'id'),
+    (u->>'full_name'),
+    (u->>'email'),
+    (u->>'phone'),
+    (u->>'password_hash'),
+    (u->>'salt'),
+    (u->>'created_at')::pg_catalog.timestamptz,
+    (u->>'updated_at')::pg_catalog.timestamptz
+  FROM pg_catalog.jsonb_array_elements(p_data->'users') AS u
   ON CONFLICT (id) DO NOTHING;
-  RETURN NEW;
+  GET DIAGNOSTICS v_users_count = ROW_COUNT;
+
+  -- 2. Ingest Profiles
+  INSERT INTO public.profiles (user_id, full_name, phone, village, district, state, preferred_language, farm_area, area_unit, soil_type, irrigation_method, main_crop, season, latitude, longitude, created_at, updated_at)
+  SELECT
+    (p->>'user_id'),
+    (p->>'full_name'),
+    (p->>'phone'),
+    (p->>'village'),
+    (p->>'district'),
+    (p->>'state'),
+    (p->>'preferred_language'),
+    (p->>'farm_area'),
+    (p->>'area_unit'),
+    (p->>'soil_type'),
+    (p->>'irrigation_method'),
+    (p->>'main_crop'),
+    (p->>'season'),
+    (p->>'latitude')::pg_catalog.numeric,
+    (p->>'longitude')::pg_catalog.numeric,
+    (p->>'created_at')::pg_catalog.timestamptz,
+    (p->>'updated_at')::pg_catalog.timestamptz
+  FROM pg_catalog.jsonb_array_elements(p_data->'profiles') AS p
+  ON CONFLICT (user_id) DO NOTHING;
+  GET DIAGNOSTICS v_profiles_count = ROW_COUNT;
+
+  -- 3. Ingest Crops
+  INSERT INTO public.crops (id, user_id, crop_name, field_name, variety, sowing_date, growth_stage, area, notes, created_at, updated_at)
+  SELECT
+    (c->>'id'),
+    (c->>'user_id'),
+    (c->>'crop_name'),
+    (c->>'field_name'),
+    (c->>'variety'),
+    (c->>'sowing_date'),
+    (c->>'growth_stage'),
+    (c->>'area'),
+    (c->>'notes'),
+    (c->>'created_at')::pg_catalog.timestamptz,
+    (c->>'updated_at')::pg_catalog.timestamptz
+  FROM pg_catalog.jsonb_array_elements(p_data->'crops') AS c
+  ON CONFLICT (id) DO NOTHING;
+  GET DIAGNOSTICS v_crops_count = ROW_COUNT;
+
+  -- 4. Ingest Activities
+  INSERT INTO public.farm_activities (id, user_id, name, category, activity_date, farm, crop, notes, completed, created_at, updated_at)
+  SELECT
+    (a->>'id'),
+    (a->>'user_id'),
+    (a->>'name'),
+    (a->>'category'),
+    (a->>'activity_date'),
+    (a->>'farm'),
+    (a->>'crop'),
+    (a->>'notes'),
+    (a->>'completed')::pg_catalog.bool,
+    (a->>'created_at')::pg_catalog.timestamptz,
+    (a->>'updated_at')::pg_catalog.timestamptz
+  FROM pg_catalog.jsonb_array_elements(p_data->'activities') AS a
+  ON CONFLICT (id) DO NOTHING;
+  GET DIAGNOSTICS v_activities_count = ROW_COUNT;
+
+  -- 5. Ingest Analyses
+  INSERT INTO public.crop_analyses (id, user_id, crop, file_name, image_url, report, is_demo, confidence, model_name, detected_crop, possible_issue, created_at)
+  SELECT
+    (an->>'id'),
+    (an->>'user_id'),
+    (an->>'crop'),
+    (an->>'file_name'),
+    (an->>'image_url'),
+    (an->>'report'),
+    (an->>'is_demo')::pg_catalog.bool,
+    (an->>'confidence'),
+    (an->>'model_name'),
+    (an->>'detected_crop'),
+    (an->>'possible_issue'),
+    (an->>'created_at')::pg_catalog.timestamptz
+  FROM pg_catalog.jsonb_array_elements(p_data->'analyses') AS an
+  ON CONFLICT (id) DO NOTHING;
+  GET DIAGNOSTICS v_analyses_count = ROW_COUNT;
+
+  RETURN pg_catalog.jsonb_build_object(
+    'success', true,
+    'inserted_users', v_users_count,
+    'inserted_profiles', v_profiles_count,
+    'inserted_crops', v_crops_count,
+    'inserted_activities', v_activities_count,
+    'inserted_analyses', v_analyses_count
+  );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- ==============================================================================
--- 12. STORAGE SETUP (OPTIONAL / PRIVATE BUCKET FOR CROP PHOTOS)
--- In Supabase Dashboard > Storage:
--- 1. Create a bucket named: crop-photos
--- 2. Mark as private
--- 3. Create RLS storage policy:
---    Allow authenticated users access to folder matching their user id:
---    (storage.foldername(name))[1] = auth.uid()::text
--- ==============================================================================
+-- Secure migration RPC: Exclusively for server-side service_role
+REVOKE EXECUTE ON FUNCTION public.migrate_farm_payload(pg_catalog.jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.migrate_farm_payload(pg_catalog.jsonb) TO service_role;
