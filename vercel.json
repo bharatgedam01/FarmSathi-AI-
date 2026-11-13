@@ -1,6 +1,16 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "functions": {
+    "api/mandi.js": {
+      "maxDuration": 30,
+      "regions": ["bom1"]
+    },
+    "api/mandi-probe.js": {
+      "maxDuration": 20,
+      "regions": ["bom1"]
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/schemes",

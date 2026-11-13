@@ -176,8 +176,124 @@ async function fetchFromDataGovIn(stateFilter = '') {
     return { records: null, _debug };
 
   } catch (err) {
-    _debug.fetchError = err.message || String(err);
-    console.warn('Data.gov.in Mandi API request error:', err.message);
+    _debug.fetchError   = err.message  || String(err);
+    _debug.errorName    = err.name     || 'UnknownError';
+    _debug.causeCode    = err.cause && err.cause.code    ? err.cause.code    : null;
+    _debug.causeMessage = err.cause && err.cause.message ? err.cause.message : null;
+    // Safe log — no secrets
+    console.warn(
+      `Data.gov.in Mandi API fetch failed: name=${err.name} message=${err.message}`,
+      `cause.code=${_debug.causeCode} cause.msg=${_debug.causeMessage}`
+    );
+    return { records: null, _debug };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Low-level HTTPS fallback: used when global fetch is unavailable or fails
+// ---------------------------------------------------------------------------
+function httpsGet(urlString, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const { URL } = require('url');
+    let u;
+    try { u = new URL(urlString); } catch (e) { return reject(e); }
+
+    const options = {
+      hostname: u.hostname,
+      path:     u.pathname + u.search,
+      method:   'GET',
+      headers:  { 'Accept': 'application/json' },
+      timeout:  timeoutMs
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        resolve({ status: res.statusCode, body });
+      });
+    });
+    req.on('timeout', () => { req.destroy(); reject(new Error('HTTPS request timed out')); });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+async function fetchFromDataGovInHTTPS(apiKey) {
+  const params = new URLSearchParams({
+    'api-key': apiKey,
+    format: 'json',
+    limit: '500',
+    offset: '0'
+  });
+  const urlString = `https://api.data.gov.in/resource/${DATA_GOV_RESOURCE_ID}?${params.toString()}`;
+
+  const _debug = {
+    method: 'node-https',
+    httpStatus: null,
+    apiStatus: null,
+    apiTotal: null,
+    rawRecordCount: null,
+    fetchError: null,
+    errorName: null,
+    causeCode: null,
+    causeMessage: null
+  };
+
+  try {
+    const { status, body } = await httpsGet(urlString, 20000);
+    _debug.httpStatus = status;
+
+    if (status !== 200) {
+      console.warn(`HTTPS fallback: HTTP ${status}`);
+      return { records: null, _debug };
+    }
+
+    let data;
+    try { data = JSON.parse(body); }
+    catch (e) {
+      _debug.fetchError = 'JSON parse error: ' + e.message;
+      return { records: null, _debug };
+    }
+
+    _debug.apiStatus      = data && data.status !== undefined ? data.status : 'missing';
+    _debug.apiTotal       = data && data.total  !== undefined ? data.total  : 'missing';
+    _debug.rawRecordCount = Array.isArray(data && data.records) ? data.records.length : 0;
+
+    if (data && Array.isArray(data.records) && data.records.length > 0) {
+      const mapped = data.records.map((r, i) => {
+        const minP   = parseFloat(r.min_price)   || 0;
+        const maxP   = parseFloat(r.max_price)   || 0;
+        const modalP = parseFloat(r.modal_price) || (minP + maxP) / 2;
+        return {
+          id: `agmark_${i}_${Date.now()}`,
+          state:        r.state     || 'India',
+          district:     r.district  || '',
+          market:       r.market    || '',
+          crop:         r.commodity || 'Commodity',
+          variety:      r.variety   || (r.grade ? `Grade: ${r.grade}` : 'Standard'),
+          min_price:    minP,
+          max_price:    maxP,
+          modal_price:  modalP,
+          unit:         '₹ / Quintal',
+          arrival_date: normaliseArrivalDate(r.arrival_date || r.date || ''),
+          trend:        'stable',
+          isLive:       true
+        };
+      });
+      return { records: mapped, _debug };
+    }
+
+    console.warn(`HTTPS fallback: status="${data && data.status}", total=${data && data.total}, records=${_debug.rawRecordCount}`);
+    return { records: null, _debug };
+
+  } catch (err) {
+    _debug.fetchError   = err.message  || String(err);
+    _debug.errorName    = err.name     || 'UnknownError';
+    _debug.causeCode    = err.cause && err.cause.code    ? err.cause.code    : null;
+    _debug.causeMessage = err.cause && err.cause.message ? err.cause.message : null;
+    console.warn(`HTTPS fallback fetch failed: ${err.name}: ${err.message}`);
     return { records: null, _debug };
   }
 }
@@ -209,7 +325,17 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
       // Fetch all records client-side — server-side state filter returns 0 on data.gov.in
       const result = await fetchFromDataGovIn('');
       _debug = result._debug || {};
-      const liveData = result.records;
+      let liveData = result.records;
+
+      // If global fetch failed (network-level), try Node.js https module as fallback
+      if (!liveData && _debug.fetchError) {
+        console.warn('Global fetch failed, trying Node.js https module fallback...');
+        const apiKey = (process.env.DATA_GOV_IN_API_KEY || '').trim();
+        const fallback = await fetchFromDataGovInHTTPS(apiKey);
+        _debug = { primaryFetch: _debug, ...fallback._debug };
+        liveData = fallback.records;
+      }
+
       if (liveData && liveData.length > 0) {
         liveMandiCache = {
           timestamp: now,
