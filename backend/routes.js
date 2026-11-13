@@ -528,12 +528,9 @@ async function handleApiRequest(req, res) {
     }
 
     if (pathname === '/api/mandi' && method === 'GET') {
-      const state = query.state || '';
-      const search = query.q || query.search || query.crop || '';
-      const sort = query.sort || '';
-      const forceRefresh = query.refresh === 'true' || query.refresh === '1';
-      const mandiRes = await mandiService.queryMandiPrices({ state, query: search, sort, forceRefresh });
-      sendJson(res, 200, mandiRes);
+      // Delegate entirely to backend/api/mandi.js which handles both ?probe and normal modes
+      const mandiHandler = require('./api/mandi');
+      await mandiHandler(req, res);
       return true;
     }
 
