@@ -1,10 +1,10 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "regions": ["bom1"],
   "functions": {
     "api/mandi.js": {
-      "maxDuration": 30,
-      "regions": ["bom1"]
+      "maxDuration": 30
     }
   },
   "crons": [

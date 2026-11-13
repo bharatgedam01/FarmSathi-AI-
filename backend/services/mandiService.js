@@ -363,7 +363,7 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
       source: 'No live source available',
       _debug: _debug,
       message: hasApiKey
-        ? 'Live Agmarknet government feed returned no records today. This can happen on government holidays or when no arrivals are reported. Try again later.'
+        ? 'Live Agmarknet data could not be fetched. This is likely because data.gov.in (NIC, 164.100.61.198) blocks outbound HTTPS connections from cloud hosting providers including Vercel. The mandi module now attempts a browser-side direct fetch when the server-side call fails. If you are seeing this in production, your browser will attempt to fetch data.gov.in directly using your Indian ISP connection.'
         : 'Live mandi price data is unavailable. DATA_GOV_IN_API_KEY is not configured in Vercel environment variables. Add a valid key from data.gov.in to enable real-time mandi prices.',
       note: 'Set DATA_GOV_IN_API_KEY in Vercel Project Settings → Environment Variables to enable the live Agmarknet feed.'
     };

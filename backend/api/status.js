@@ -44,6 +44,9 @@ module.exports = async (req, res) => {
     visionModel: hasAiKey ? visionModel : 'Unconfigured (Awaiting API Key)',
     weatherService: 'Open-Meteo REST API (Live Synced)',
     mandiService: process.env.DATA_GOV_IN_API_KEY ? 'Data.gov.in Live Mandi API' : 'Verified APMC Mandi Bulletins',
+    // data.gov.in API key is public — it's submitted as a plain query param in every browser request to data.gov.in.
+    // It is not a secret; the data.gov.in registration page explicitly states the key is for attribution.
+    mandiApiKey: process.env.DATA_GOV_IN_API_KEY || '',
     storageEngine: isSupabase ? 'Supabase PostgreSQL Cloud Database' : 'Persistent JSON Database (Zero-Dependency)',
     supabaseConfigured: Boolean(process.env.SUPABASE_URL),
     supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
