@@ -107,32 +107,46 @@ function normaliseArrivalDate(raw) {
 
 async function fetchFromDataGovIn(stateFilter = '') {
   const apiKey = (process.env.DATA_GOV_IN_API_KEY || '').trim();
-  if (!apiKey) return null;
+  if (!apiKey) return { records: null, _debug: { error: 'no_api_key' } };
+
+  const _debug = {
+    httpStatus: null,
+    apiStatus: null,
+    apiTotal: null,
+    rawRecordCount: null,
+    fetchError: null
+  };
 
   try {
-    // DIAGNOSIS FIX 1: data.gov.in does NOT support server-side state filtering reliably.
+    // FIX 1: data.gov.in does NOT support server-side state filtering reliably.
     // Always fetch all available records (up to API limit) and filter client-side.
-    // The API's filters[state] param returned 0 results even with valid data.
-    // Fetch all records with a generous limit and paginate if needed.
     const params = new URLSearchParams({
       'api-key': apiKey,
       format: 'json',
-      limit: '500',    // fetch all available today
+      limit: '500',
       offset: '0'
     });
     const url = `https://api.data.gov.in/resource/${DATA_GOV_RESOURCE_ID}?${params.toString()}`;
 
-    // DIAGNOSIS FIX 2: Increase timeout — 6s was too tight for a cold government API
-    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    // FIX 2: Increase timeout — 6s was too tight for a cold government API
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    _debug.httpStatus = res.status;
 
     if (!res.ok) {
       console.warn(`Data.gov.in Mandi API HTTP ${res.status}: ${res.statusText}`);
-      return null;
+      return { records: null, _debug };
     }
 
     const data = await res.json();
-    if (data && data.status === 'ok' && Array.isArray(data.records) && data.records.length > 0) {
-      return data.records.map((r, i) => {
+    _debug.apiStatus = data && data.status !== undefined ? data.status : 'missing';
+    _debug.apiTotal  = data && data.total  !== undefined ? data.total  : 'missing';
+    _debug.rawRecordCount = Array.isArray(data && data.records) ? data.records.length : 0;
+
+    // FIX 3: Remove strict `data.status === 'ok'` check.
+    // The API may return 'OK', 'ok', 'Ok', or even omit the field on some responses.
+    // Only check that records array exists and is non-empty.
+    if (data && Array.isArray(data.records) && data.records.length > 0) {
+      const mapped = data.records.map((r, i) => {
         const minP   = parseFloat(r.min_price)   || 0;
         const maxP   = parseFloat(r.max_price)   || 0;
         const modalP = parseFloat(r.modal_price) || (minP + maxP) / 2;
@@ -141,29 +155,31 @@ async function fetchFromDataGovIn(stateFilter = '') {
           state:        r.state     || 'India',
           district:     r.district  || '',
           market:       r.market    || '',
-          // DIAGNOSIS FIX 3: API field is "commodity", not "crop" — already mapped correctly
+          // FIX 4: API field is "commodity", not "crop"
           crop:         r.commodity || 'Commodity',
           variety:      r.variety   || (r.grade ? `Grade: ${r.grade}` : 'Standard'),
           min_price:    minP,
           max_price:    maxP,
           modal_price:  modalP,
           unit:         '₹ / Quintal',
-          // DIAGNOSIS FIX 4: Normalise DD/MM/YYYY → YYYY-MM-DD for display
+          // FIX 5: Normalise DD/MM/YYYY → YYYY-MM-DD for display
           arrival_date: normaliseArrivalDate(r.arrival_date || r.date || ''),
           trend:        'stable',
           isLive:       true
         };
       });
+      return { records: mapped, _debug };
     }
 
     // API returned 0 records today (can happen on govt holidays)
-    if (data && data.total === 0) {
-      console.warn('Data.gov.in Mandi API: 0 records available today (holiday or no arrivals reported).');
-    }
+    console.warn(`Data.gov.in Mandi API: status="${data && data.status}", total=${data && data.total}, records=${_debug.rawRecordCount}`);
+    return { records: null, _debug };
+
   } catch (err) {
+    _debug.fetchError = err.message || String(err);
     console.warn('Data.gov.in Mandi API request error:', err.message);
+    return { records: null, _debug };
   }
-  return null;
 }
 
 async function queryMandiPrices({ state = '', query = '', forceRefresh = false, sort = '' } = {}) {
@@ -179,6 +195,8 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
 
   const hasApiKey = Boolean(process.env.DATA_GOV_IN_API_KEY && process.env.DATA_GOV_IN_API_KEY.trim());
 
+  let _debug = {};
+
   // 1. Try Live Data.gov.in if key configured
   if (hasApiKey) {
     if (!forceRefresh && liveMandiCache.records.length > 0 && (now - liveMandiCache.timestamp < CACHE_TTL)) {
@@ -186,10 +204,12 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
       isLive = true;
       sourceName = 'Data.gov.in / Agmarknet Live Mandi Feed (Cached)';
       apiTotal = rawRecords.length;
+      _debug = { cacheHit: true, cachedCount: rawRecords.length };
     } else {
-      // DIAGNOSIS FIX 5: Pass empty stateFilter — fetch all records, filter client-side
-      // The data.gov.in API's server-side state filter is broken (returns 0 results)
-      const liveData = await fetchFromDataGovIn('');
+      // Fetch all records client-side — server-side state filter returns 0 on data.gov.in
+      const result = await fetchFromDataGovIn('');
+      _debug = result._debug || {};
+      const liveData = result.records;
       if (liveData && liveData.length > 0) {
         liveMandiCache = {
           timestamp: now,
@@ -200,6 +220,7 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
         isLive = true;
         sourceName = liveMandiCache.source;
         apiTotal = liveData.length;
+        _debug.mappedCount = liveData.length;
       }
     }
   }
@@ -214,6 +235,7 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
       hasApiKey: hasApiKey,
       latestObservationDate: '',
       source: 'No live source available',
+      _debug: _debug,
       message: hasApiKey
         ? 'Live Agmarknet government feed returned no records today. This can happen on government holidays or when no arrivals are reported. Try again later.'
         : 'Live mandi price data is unavailable. DATA_GOV_IN_API_KEY is not configured in Vercel environment variables. Add a valid key from data.gov.in to enable real-time mandi prices.',
@@ -272,6 +294,7 @@ async function queryMandiPrices({ state = '', query = '', forceRefresh = false, 
     latestObservationDate: latestObservationDate || 'Available in records',
     source: sourceName,
     apiTotal: apiTotal,
+    _debug: _debug,
     message: isLive
       ? `Live Agmarknet data: ${filtered.length} records shown (${apiTotal} total fetched today).`
       : (hasApiKey
